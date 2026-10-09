@@ -138,7 +138,8 @@ shell already ignores. It removes
 
 The bar looks the same before and after. Before writing, it copies the file to
 `shell.json.bak.omalint.<timestamp>` next to it and prints a unified diff; the output
-ends with the `cp` command that undoes the change.
+ends with the `cp` command that undoes the change. The backup is readable only by you
+(mode `0600`), whatever mode `shell.json` has.
 
 It is deliberately cautious. It leaves an entry alone when the plugin might be broken
 rather than gone, never removes anything in the `omarchy.*` namespace, and does not
@@ -212,9 +213,13 @@ It runs these local, read-only commands: `sh -c 'command -v …'`, `pacman -Qq`,
 `omarchy-shell shell listPlugins`, `hyprctl -j binds` and `journalctl --user -t omarchy-shell`.
 It never fetches, never contacts a network, and sends nothing anywhere.
 
+Nothing from your setup is put on a command line, where other users of the machine could
+read it. The command names to look up go to `sh` over a pipe, `pacman` is asked for its
+whole list, and `git` is started inside the plugin's folder instead of being given its path.
+
 It writes nothing, with one exception: `omalint --fix` rewrites `shell.json` and leaves
-a `shell.json.bak.omalint.<timestamp>` backup beside it. There is no cache, no state
-directory and no log file.
+a `shell.json.bak.omalint.<timestamp>` backup beside it, created with mode `0600`. There
+is no cache, no state directory and no log file.
 
 ## Remove
 

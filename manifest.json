@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.davidgudovic.omalint",
   "name": "OmaLint",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": "David Gudovic",
   "description": "Finds problems in your Omarchy shell plugins and bar setup: broken manifests, dead bar entries, keybinding conflicts, missing dependencies, modified plugins, and plugin errors in the shell log. Read-only unless you ask it to fix.",
   "license": "MIT",

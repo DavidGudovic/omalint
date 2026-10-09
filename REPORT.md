@@ -1,16 +1,90 @@
 # OmaLint: final report
 
-**Status: ready to publish, not published.** `DavidGudovic/omalint` does not exist on
-GitHub and this repository has no remote, so everything is committed locally only. The
-working tree is clean, 321 tests pass, `omarchy plugin validate` accepts it, and the
-marketplace's own static security baseline reports `passed`.
+**Status: published; the marketplace listing was blocked by a security review, and the
+fixes are committed locally and not pushed.** `DavidGudovic/omalint` is public on GitHub at
+commit `e0d4380` (the owner published it). The reviewer blocked the listing on one finding
+in that commit. It is fixed in `d4947e8`, and an audit for the same class of bug led to
+`1813e93`. `main` is ahead of `origin/main`; pushing is the owner's step. 336 tests pass,
+`omarchy plugin validate` accepts it, and the marketplace's own static security baseline
+reports `passed`.
 
 | | |
 |---|---|
 | Repository | `~/projects/omalint` (branch `main`), to become `DavidGudovic/omalint` |
 | Plugin id | `io.github.davidgudovic.omalint` |
 | Command | `omalint` |
-| Version | 0.3.0 |
+| Version | 0.3.1 |
+
+## Security fix round
+
+The marketplace security reviewer blocked the listing on one finding in `e0d4380`. I
+confirmed it, fixed it, and audited the rest of the code for the same two classes of bug:
+private data in a file that others can read, and private data in process arguments.
+
+**The reviewer's finding (fixed in `d4947e8`)**
+
+`--fix` backed up `shell.json` with `shutil.copy2`. That creates the copy with default
+permissions (0644 under umask 022) and copies the source's mode only after the content is
+in, so the backup of a private `shell.json` was readable by other local users for a
+moment.
+
+- The backup is now created with `os.open(..., O_CREAT | O_EXCL, 0o600)` and stays 0600
+  whatever mode `shell.json` has. The undo command (`cp backup shell.json`) keeps
+  `shell.json`'s own mode, so a private backup costs nothing.
+- `O_EXCL` also closes a second hole I found in the same lines: a dangling symlink left
+  at the backup name was followed, because the existence check does not see it.
+- The backup holds the text that was just verified against the file, not a second read.
+- When the write fails, the backup is removed again, so a failed fix leaves nothing
+  behind.
+- The replacement file was already safe: `mkstemp` creates it 0600 and it takes the
+  original's mode only after the content is written.
+
+**Found by the audit (fixed in `1813e93`)**
+
+Other local users can read a process's arguments, and two checks put data from the user's
+setup there.
+
+- The stale check ran `git -C <plugin folder> status`. Git is now started inside the
+  checkout, so the path is not on its command line.
+- The deps check passed the command names from the plugins' READMEs to `sh` and to
+  `pacman -Qq` as arguments. The names now go to `sh` on stdin, and `pacman -Qq` is asked
+  for its whole list, which is compared in Python. The results are the same.
+
+**Audited and left alone**
+
+- The service starts `python3 <plugin folder>/bin/omalint --json`, and the report opens a
+  terminal on the same script. The only path there is where the plugin itself is
+  installed. No finding, count or setting is passed as an argument: the result comes back
+  on a pipe.
+- `journalctl` is given the shell's process ids, which anyone on the machine can list.
+  `omarchy-shell shell ping`, `omarchy-shell shell listPlugins` and `hyprctl -j binds`
+  take no data.
+- The notification in the README's hook example is fixed text with no data in it.
+- What the user types (`omalint --ignore RULE`, `--config-dir`) is on the user's own
+  command line, as with any command. The widget passes none of it.
+- The report suggests commands such as `git -C ~/.config/omarchy/plugins/<id> diff`. They
+  are advice for the user to run, not something OmaLint runs.
+- No other file is written: no cache, state, log or report file. `--fix` writes only
+  `shell.json` (through a symlink if it is one) and the backup beside it, and only when
+  asked.
+- `docs/screenshots.sh` and the tests work on sample data in `mktemp -d` and
+  `TemporaryDirectory` folders (mode 0700) that are removed on exit.
+
+**Tests: 336, all passing.** 15 are new. Run against the old code, the new tests fail the
+way the findings predict: the backup is created 0644 (`420 != 384`) when later permission
+changes are switched off, the symlink is followed, a failed write leaves a backup behind,
+and the names and the plugin folder are found in the arguments.
+
+**Real run** in a temporary HOME under umask 022, with a git-installed plugin that
+requires a missing command: the backup was 0600 for a 0600 `shell.json` and for a 0644
+one, and byte-identical to the original. Wrappers around `sh`, `git` and `pacman` recorded
+every argument they were started with, and none contained the plugin's id, its folder,
+the home directory or the command name. Both findings were still reported.
+
+**Not verified:** the moment of creation was checked by the test above, not by tracing
+system calls (`strace` is not installed here). 0.3.1 has not run inside the real bar.
+Nothing was pushed. A Sonnet subagent wrote the code and tests from my design and Haiku
+subagents the text; I reviewed the diff and ran the checks above myself.
 
 ## Round 3: inspection
 
@@ -157,7 +231,7 @@ entries after writing a `shell.json.bak.omalint.<timestamp>` backup and printing
 
 ## Install and remove
 
-Install (once published):
+Install:
 
 ```bash
 omarchy plugin add https://github.com/DavidGudovic/omalint.git
@@ -181,7 +255,7 @@ Per the brief, the plugin was **not** installed into `~/.config/omarchy/plugins`
 
 ## What was tested
 
-**Tests: 321, all passing** (`bash tests/run.sh`, about 8 seconds,
+**Tests: 336, all passing** (`bash tests/run.sh`, about 8 seconds,
 standard library only). Fixtures under `tests/fixtures/`:
 
 - `stock/`: a miniature Omarchy install (built-in plugins, default Hyprland bindings)
@@ -400,20 +474,21 @@ One correction to the finish notice: it says the marketplace already lists
 `Davedes83/OmaDoctor`, which was the conflict with the previous name. The rename removes
 it, so I see no open naming question, but the decision to publish is the owner's.
 
-Checked again in round 2: `gh repo view DavidGudovic/omalint` still fails and no remote is
-configured, so nothing was pushed.
+Checked again in round 2: `gh repo view DavidGudovic/omalint` still failed and no remote
+was configured, so nothing was pushed.
 
-To publish:
+The owner has published it since. In the security fix round `gh repo view
+DavidGudovic/omalint` showed a public repository, and `origin/main` was at `e0d4380`. The
+commits made after that are local. To publish them (the owner's step):
 
 ```bash
 cd ~/projects/omalint
-gh repo create DavidGudovic/omalint --public --source . --remote origin --push
-gh repo view DavidGudovic/omalint --json visibility,url
+git push origin main
 ```
 
 ## Known limitations
 
-- **0.3.0 has never run inside the real bar.** The service and widget were verified in a
+- **0.3.1 has never run inside the real bar.** The service and widget were verified in a
   separate offscreen Quickshell with the shell's real components, not in the running
   Omarchy shell. The owner's installed copy is 0.1.0.
 - **Keybindings** are found by scanning Lua for literal `o.bind` / `hl.bind` /
@@ -459,4 +534,5 @@ gh repo view DavidGudovic/omalint --json visibility,url
 
 ## Repository URL
 
-Not created yet. Once published: https://github.com/DavidGudovic/omalint
+https://github.com/DavidGudovic/omalint (public, at `e0d4380`). The security fixes are
+local commits that have not been pushed.

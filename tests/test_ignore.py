@@ -311,7 +311,7 @@ class RulesOptionTests(unittest.TestCase):
     def test_the_version_is_the_one_in_the_manifest(self):
         manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(command_line.VERSION, manifest["version"])
-        self.assertEqual(command_line.VERSION, "0.3.0")
+        self.assertEqual(command_line.VERSION, "0.3.1")
 
 
 class ErrorFindingTests(unittest.TestCase):

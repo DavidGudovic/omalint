@@ -14,7 +14,7 @@ from . import fixes, ignore, inventory, report
 from .checks import CHECKS
 from .model import ERROR, Context, Finding, Result
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 DESCRIPTION = """\
 Find problems in your Omarchy shell plugins and bar setup.
