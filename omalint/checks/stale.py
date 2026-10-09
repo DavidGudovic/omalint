@@ -101,10 +101,12 @@ def git_changes(ctx: Context, directory: Path):
     """(modified, untracked) paths of a git checkout, or None when git cannot say."""
     # Inherited GIT_DIR and friends (set inside git hooks) would point git at another repo.
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    # Git is started inside the checkout rather than with -C, so that the path stays off its command line.
     run = ctx.run(
-        ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "-C", str(directory), "status", "--porcelain"],
+        ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "status", "--porcelain"],
         timeout=15,
         env=env,
+        cwd=directory,
     )
     if not run.ok:
         return None

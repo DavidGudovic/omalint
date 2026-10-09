@@ -130,15 +130,20 @@ def snapshot(root):
 
 
 class FakeRun:
-    """Stands in for Context.run. Rules are (argv prefix, Run); the first match answers, else "missing"."""
+    """Stands in for Context.run. Rules are (argv prefix, Run); the first match answers, else "missing".
+
+    calls holds each argv; handed holds, call for call, the cwd and input that went in beside it.
+    """
 
     def __init__(self, *rules):
         self.rules = [(tuple(prefix), result) for prefix, result in rules]
         self.calls = []
+        self.handed = []
 
-    def __call__(self, argv, timeout=5.0, env=None):
+    def __call__(self, argv, timeout=5.0, env=None, cwd=None, input=None):
         argv = list(argv)
         self.calls.append(argv)
+        self.handed.append({"cwd": cwd, "input": input})
         for prefix, result in self.rules:
             if tuple(argv[:len(prefix)]) == prefix:
                 return result

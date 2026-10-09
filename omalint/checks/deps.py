@@ -34,7 +34,8 @@ _NOUNS = (r"modules?|librar(?:y|ies)|groups?|scopes?|options?|settings?|keys?|fi
 _RUN = r"`[^`\n]+`(?:(?:\s*,\s*(?:and\s+|or\s+)?|\s+and\s+|\s+or\s+)`[^`\n]+`)*"
 _DESCRIBED = re.compile(rf"{_RUN}(?=\s+(?:python\s+|kernel\s+)?(?:{_NOUNS})\b)", re.I)
 _INTRODUCED = re.compile(rf"\b(?:set|{_NOUNS})\s+{_RUN}", re.I)
-_CHECK = 'for c in "$@"; do command -v "$c" >/dev/null 2>&1 || printf "%s\\n" "$c"; done'
+# The names arrive on stdin, one per line, because other local users can read a process's command line.
+_CHECK = 'while IFS= read -r c; do command -v "$c" >/dev/null 2>&1 || printf "%s\\n" "$c"; done'
 MAX_README = 1024 * 1024
 
 
@@ -137,14 +138,17 @@ def missing(ctx: Context, names) -> set:
     absent = {p for p in paths if not os.path.exists(p)}
     if not commands:
         return absent
-    run = ctx.run(["sh", "-c", _CHECK, "sh"] + commands, env=dict(os.environ, PATH=ctx.path_env))
+    # Every name ends with a newline, or `read` drops the last one.
+    stdin = "".join(c + "\n" for c in commands)
+    run = ctx.run(["sh", "-c", _CHECK], env=dict(os.environ, PATH=ctx.path_env), input=stdin)
     if run.status == "ok":
         gone = set(run.out.split()) & set(commands)
     else:
         gone = {c for c in commands if shutil.which(c, path=ctx.path_env) is None}
     if gone:
         # Requirement lists often name the package instead of its command (pciutils for lspci).
-        packages = ctx.run(["pacman", "-Qq"] + sorted(gone))
+        # The list of every installed package is read whole and compared here, so no name goes on a command line.
+        packages = ctx.run(["pacman", "-Qq"])
         if packages.status == "ok":
             gone -= set(packages.out.split())
     return absent | gone

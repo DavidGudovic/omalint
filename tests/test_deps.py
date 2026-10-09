@@ -166,5 +166,36 @@ class MissingTests(unittest.TestCase):
         self.assertEqual(deps.missing(context("healthy", run=FakeRun()), [sys.executable]), set())
 
 
+class MissingKeepsNamesOffCommandLinesTests(unittest.TestCase):
+    def test_no_name_is_on_any_command_line_and_the_names_go_in_through_stdin(self):
+        fake = FakeRun((("sh",), Run("ok", 0, "foo\n")), (("pacman",), Run("ok", 0, "bar\n")))
+        deps.missing(context("healthy", run=fake), ["foo", "jq"])
+        for argv in fake.calls:
+            for argument in argv:
+                for name in ("foo", "jq"):
+                    self.assertNotIn(name, argument)
+        self.assertEqual([argv[0] for argv in fake.calls], ["sh", "pacman"])
+        self.assertEqual(fake.handed[0]["input"], "foo\njq\n")
+        self.assertEqual(fake.calls[1], ["pacman", "-Qq"])
+
+    def test_a_name_in_the_middle_of_the_package_list_counts_as_present(self):
+        listing = "bash\ncoreutils\npciutils\nzsh\n"
+        fake = FakeRun((("sh",), Run("ok", 0, "foo\npciutils\n")), (("pacman",), Run("ok", 0, listing)))
+        self.assertEqual(deps.missing(context("healthy", run=fake), ["foo", "pciutils"]), {"foo"})
+
+
+class MissingWithTheRealShellTests(unittest.TestCase):
+    def ctx(self):
+        return context("healthy", path_env="/usr/bin:/bin")
+
+    def test_only_the_name_that_is_not_installed_is_reported(self):
+        names = ["sh", "omalint-fixture-no-such-tool"]
+        self.assertEqual(deps.missing(self.ctx(), names), {"omalint-fixture-no-such-tool"})
+
+    def test_the_last_name_sent_is_still_checked(self):
+        names = ["sh", "zz-omalint-fixture-no-such-tool"]
+        self.assertEqual(deps.missing(self.ctx(), names), {"zz-omalint-fixture-no-such-tool"})
+
+
 if __name__ == "__main__":
     unittest.main()

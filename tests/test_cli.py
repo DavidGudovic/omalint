@@ -11,6 +11,7 @@ from helpers import (
 
 from omalint import cli as command_line
 from omalint.checks import bar
+from omalint.model import run_command
 
 try:
     import pty
@@ -265,6 +266,19 @@ class EntryScriptTests(Helpers, unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("omalint", result.stdout)
+
+
+class RunCommandTests(Helpers, unittest.TestCase):
+    def test_input_reaches_the_command_on_stdin(self):
+        self.assertEqual(run_command(["cat"], input="x\n").out, "x\n")
+
+    def test_stdin_is_empty_when_there_is_no_input(self):
+        self.assertEqual(run_command(["cat"]).out, "")
+
+    def test_the_command_starts_in_the_given_directory(self):
+        directory = self.tempdir()
+        out = run_command(["pwd"], cwd=directory).out.strip()
+        self.assertEqual(os.path.realpath(out), os.path.realpath(directory))
 
 
 if __name__ == "__main__":

@@ -71,16 +71,25 @@ class Run:
         return self.status == "ok" and self.code == 0
 
 
-def run_command(argv, timeout=5.0, env=None) -> Run:
+def run_command(argv, timeout=5.0, env=None, cwd=None, input=None) -> Run:
+    """Run a command and capture its output.
+
+    What comes from the user's setup goes in through input or cwd, never argv,
+    because other local users can read a process's arguments.
+    """
+    # subprocess.run refuses stdin together with input.
+    stdin = subprocess.DEVNULL if input is None else None
     try:
         done = subprocess.run(
             argv,
-            stdin=subprocess.DEVNULL,
+            stdin=stdin,
+            input=input,
             capture_output=True,
             text=True,
             errors="replace",
             timeout=timeout,
             env=env,
+            cwd=cwd,
         )
     except (FileNotFoundError, PermissionError, NotADirectoryError):
         return Run("missing")

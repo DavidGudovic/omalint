@@ -195,5 +195,20 @@ class GitUnavailableTests(Helpers, unittest.TestCase):
         self.assertNotIn("No plugins were installed with git.", result.notes)
 
 
+class GitCommandLineTests(Helpers, unittest.TestCase):
+    def test_the_plugin_folder_is_not_on_git_s_command_line_but_is_where_git_starts(self):
+        fake = FakeRun((("git",), Run("ok", 0, "")))
+        ctx = temp_context(self.tempdir(), run=fake)
+        plugin = write_plugin(ctx.config_dir, "acme.x")
+        (plugin / ".git").mkdir()
+        run_check("stale", ctx)
+        (argv,) = fake.calls
+        self.assertNotIn("-C", argv)
+        for argument in argv:
+            self.assertNotIn(str(plugin), argument)
+            self.assertNotIn("acme.x", argument)
+        self.assertEqual(fake.handed[0]["cwd"], plugin)
+
+
 if __name__ == "__main__":
     unittest.main()
