@@ -10,11 +10,11 @@ import sys
 import traceback
 from pathlib import Path
 
-from . import fixes, inventory, report
+from . import fixes, ignore, inventory, report
 from .checks import CHECKS
 from .model import ERROR, Context, Finding, Result
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 DESCRIPTION = """\
 Find problems in your Omarchy shell plugins and bar setup.
@@ -29,6 +29,9 @@ Checks (choose with --only / --skip):
 
 Nothing is changed unless you pass --fix, and --fix only edits
 ~/.config/omarchy/shell.json after saving a shell.json.bak.omalint.<timestamp> copy.
+
+Accepted a finding? Hide it with --ignore RULE, or list rules in the
+bar widget's `ignore` setting. --rules shows each finding's rule.
 
 Exit status: 0 no errors, 1 errors found (with --strict: or warnings), 2 could not run.
 """
@@ -53,6 +56,9 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--only", type=_names, metavar="CHECKS", help="run only these checks (comma-separated)")
     cli.add_argument("--skip", type=_names, metavar="CHECKS", default=[], help="skip these checks")
     cli.add_argument("--strict", action="store_true", help="exit 1 on warnings too")
+    cli.add_argument("--ignore", action="append", default=[], metavar="RULE",
+                     help="hide a finding you have accepted: CODE or CODE:SUBJECT (see --rules); repeatable")
+    cli.add_argument("--rules", action="store_true", help="show each finding's rule, for --ignore")
     cli.add_argument("--no-live", action="store_true",
                      help="do not query the running shell, journal or Hyprland (also: OMALINT_NO_LIVE=1)")
     cli.add_argument("--no-color", action="store_true", help="plain text output")
@@ -79,7 +85,7 @@ def context(args) -> Context:
     )
 
 
-def run_checks(ctx: Context, names) -> tuple:
+def run_checks(ctx: Context, names, rules=()) -> tuple:
     inv = inventory.build(ctx)
     results = {}
     for name in names:
@@ -93,6 +99,7 @@ def run_checks(ctx: Context, names) -> tuple:
                 "so nothing it covers was checked.",
                 "This is a bug in omalint; please report it.",
             )])
+    ignore.apply(results, list(rules) + ignore.from_config(inv.shell_config))
     return inv, results
 
 
@@ -151,15 +158,16 @@ def main(argv=None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="backslashreplace")
+    accepted = [rule for value in args.ignore for rule in ignore.parse(value)]
     results = {}
     try:
         ctx = context(args)
-        inv, results = run_checks(ctx, names)
+        inv, results = run_checks(ctx, names, accepted)
         if args.fix:
             # Fixes come from the bar check, whichever checks were asked for.
-            source = results if "bar" in results else run_checks(ctx, ["bar"])[1]
+            source = results if "bar" in results else run_checks(ctx, ["bar"], accepted)[1]
             if _fix(ctx, inv, source, args.dry_run, color):
-                inv, results = run_checks(ctx, names)
+                inv, results = run_checks(ctx, names, accepted)
         if args.json:
             json.dump(report.as_json(results, VERSION, len(inv.third_party)), sys.stdout, indent=2, ensure_ascii=False)
             print()
@@ -167,7 +175,7 @@ def main(argv=None) -> int:
             width = min(shutil.get_terminal_size((100, 24)).columns, 110) - 2
             count = len(inv.third_party)
             title = f"OmaLint: {count} plugin{'' if count == 1 else 's'} in {ctx.display(ctx.plugins_dir)}"
-            sys.stdout.write(report.as_text(results, color, width, title))
+            sys.stdout.write(report.as_text(results, color, width, title, args.rules))
         sys.stdout.flush()
     except fixes.FixError as error:
         print(f"omalint: {error}", file=sys.stderr)

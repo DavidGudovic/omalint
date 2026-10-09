@@ -27,6 +27,11 @@ class Finding:
     def fixable(self) -> bool:
         return self.action is not None
 
+    @property
+    def rule(self) -> str:
+        """What a user writes to ignore exactly this finding."""
+        return f"{self.code}:{self.subject}"
+
     def to_json(self) -> dict:
         return {
             "check": self.check,
@@ -37,6 +42,7 @@ class Finding:
             "fix": self.fix,
             "path": self.path,
             "fixable": self.fixable,
+            "rule": self.rule,
         }
 
 
@@ -47,6 +53,8 @@ class Result:
     findings: list = field(default_factory=list)
     notes: list = field(default_factory=list)
     skipped: bool = False
+    # Findings the user has chosen to ignore; they no longer count as problems.
+    ignored: list = field(default_factory=list)
 
 
 @dataclass

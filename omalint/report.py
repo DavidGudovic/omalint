@@ -29,6 +29,7 @@ def summary(results: dict) -> dict:
         "warnings": sum(f.severity == WARN for f in findings),
         "notes": sum(f.severity == INFO for f in findings),
         "fixable": sum(f.fixable for f in findings),
+        "ignored": sum(len(result.ignored) for result in results.values()),
     }
 
 
@@ -45,6 +46,7 @@ def as_json(results: dict, version: str, plugins: int) -> dict:
                 "title": CHECKS[name].TITLE,
                 "status": status(result),
                 "findings": [finding.to_json() for finding in result.findings],
+                "ignored": [finding.to_json() for finding in result.ignored],
                 "notes": result.notes,
             }
             for name, result in results.items()
@@ -63,7 +65,7 @@ def headline(totals: dict) -> str:
     return " and ".join(parts) + " found."
 
 
-def as_text(results: dict, color: bool, width: int = 100, title: str = "") -> str:
+def as_text(results: dict, color: bool, width: int = 100, title: str = "", rules: bool = False) -> str:
     def paint(text, style):
         return f"\x1b[{_STYLE[style]}m{text}\x1b[0m" if color else text
 
@@ -89,11 +91,20 @@ def as_text(results: dict, color: bool, width: int = 100, title: str = "") -> st
             if finding.fix:
                 fix = finding.fix + (" (`omalint --fix` does this.)" if finding.fixable else "")
                 lines += [paint(line, "dim") for line in wrap(fix, INDENT + "  → ", INDENT + "    ")]
+            if rules:
+                # One unwrapped line, so that the rule can be copied whole.
+                lines.append(paint(f"{INDENT}  rule: {finding.rule}", "dim"))
+        if result.ignored:
+            ignored = f"Ignored: {', '.join(finding.rule for finding in result.ignored)}."
+            lines += [paint(line, "dim") for line in wrap(ignored, INDENT, INDENT)]
         lines += [paint(line, "dim") for note in result.notes for line in wrap(note, INDENT, INDENT)]
         lines.append("")
 
     totals = summary(results)
     closing = headline(totals)
+    if totals["ignored"]:
+        # Before the --fix hint, which ends in a command.
+        closing += f" {totals['ignored']} ignored."
     if totals["notes"]:
         closing += f" {_count(totals['notes'], 'note')} (•) need{'s' if totals['notes'] == 1 else ''} no action."
     if totals["fixable"]:

@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover
     pty = None
 
 CHECK_IDS = ["manifests", "bar", "keys", "deps", "stale", "health"]
-FINDING_KEYS = {"check", "code", "severity", "subject", "message", "fix", "path", "fixable"}
+FINDING_KEYS = {"check", "code", "severity", "subject", "message", "fix", "path", "fixable", "rule"}
 
 
 def report(*args):
@@ -83,7 +83,7 @@ class JsonReportTests(unittest.TestCase):
     def test_summary_counts(self):
         self.assertEqual(
             self.report["summary"],
-            {"errors": 7, "warnings": 21, "notes": 2, "fixable": 1, "plugins": 13},
+            {"errors": 7, "warnings": 21, "notes": 2, "fixable": 1, "ignored": 0, "plugins": 13},
         )
 
     def test_checks_come_in_the_documented_order(self):
