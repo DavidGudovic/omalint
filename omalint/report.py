@@ -35,7 +35,7 @@ def summary(results: dict) -> dict:
 def as_json(results: dict, version: str, plugins: int) -> dict:
     totals = summary(results)
     return {
-        "tool": "omadoctor",
+        "tool": "omalint",
         "version": version,
         "ok": totals["errors"] == 0,
         "summary": dict(totals, plugins=plugins),
@@ -87,7 +87,7 @@ def as_text(results: dict, color: bool, width: int = 100, title: str = "") -> st
             body[0] = INDENT + paint(mark, mark_style) + body[0][len(INDENT) + 1:]
             lines += body
             if finding.fix:
-                fix = finding.fix + (" (`omadoctor --fix` does this.)" if finding.fixable else "")
+                fix = finding.fix + (" (`omalint --fix` does this.)" if finding.fixable else "")
                 lines += [paint(line, "dim") for line in wrap(fix, INDENT + "  → ", INDENT + "    ")]
         lines += [paint(line, "dim") for note in result.notes for line in wrap(note, INDENT, INDENT)]
         lines.append("")
@@ -97,6 +97,6 @@ def as_text(results: dict, color: bool, width: int = 100, title: str = "") -> st
     if totals["notes"]:
         closing += f" {_count(totals['notes'], 'note')} (•) need{'s' if totals['notes'] == 1 else ''} no action."
     if totals["fixable"]:
-        closing += f" {_count(totals['fixable'], 'problem')} can be fixed automatically: omadoctor --fix"
+        closing += f" {_count(totals['fixable'], 'problem')} can be fixed automatically: omalint --fix"
     lines += wrap(closing, "  ", "  ")
     return "\n".join(lines) + "\n"

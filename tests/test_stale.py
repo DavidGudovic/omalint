@@ -5,8 +5,8 @@ import unittest
 
 from helpers import FakeRun, Helpers, context, find, run_check, temp_context, write_plugin
 
-from doctor.checks import stale
-from doctor.model import Run
+from omalint.checks import stale
+from omalint.model import Run
 
 HAVE_GIT = shutil.which("git") is not None
 

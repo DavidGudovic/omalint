@@ -79,7 +79,7 @@ def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
         raise FixError(f"{target} changed while it was being checked. Nothing was written; run the command again.")
 
     # Named after the tool, so its backups can be told from anyone else's and removed with it.
-    stamp = f"{real.name}.bak.omadoctor.{int(time.time())}"
+    stamp = f"{real.name}.bak.omalint.{int(time.time())}"
     backup = real.with_name(stamp)
     suffix = 1
     while backup.exists():
@@ -87,7 +87,7 @@ def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
         suffix += 1
     shutil.copy2(real, backup)
 
-    handle, temporary = tempfile.mkstemp(prefix=".omadoctor-", dir=real.parent)
+    handle, temporary = tempfile.mkstemp(prefix=".omalint-", dir=real.parent)
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="") as stream:
             stream.write(new)

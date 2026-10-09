@@ -6,7 +6,7 @@ A fixture plugin with nothing wrong with it.
 
 - Omarchy 4
 - `sh`, which every system has
-- Optional: `omadoctor-fixture-optional-tool` for a feature nobody needs
+- Optional: `omalint-fixture-optional-tool` for a feature nobody needs
 
 ## Keyboard shortcut
 

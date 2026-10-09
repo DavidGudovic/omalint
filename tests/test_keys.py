@@ -4,9 +4,9 @@ import unittest
 
 from helpers import FIXTURES, FakeRun, Helpers, context, find, pairs, run_check, temp_context
 
-from doctor import lua
-from doctor.checks import keys
-from doctor.model import Run
+from omalint import lua
+from omalint.checks import keys
+from omalint.model import Run
 
 
 class NormalizeTests(unittest.TestCase):

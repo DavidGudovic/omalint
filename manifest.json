@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.davidgudovic.omadoctor",
-  "name": "OmaDoctor",
+  "id": "io.github.davidgudovic.omalint",
+  "name": "OmaLint",
   "version": "0.1.0",
   "author": "David Gudovic",
   "description": "Finds problems in your Omarchy shell plugins and bar setup: broken manifests, dead bar entries, keybinding conflicts, missing dependencies, modified plugins, and plugin errors in the shell log. Read-only unless you ask it to fix.",
@@ -13,8 +13,8 @@
     "barWidget": "Widget.qml"
   },
   "barWidget": {
-    "displayName": "OmaDoctor",
-    "description": "Shows how many plugin and bar problems OmaDoctor found. Click for the report.",
+    "displayName": "OmaLint",
+    "description": "Shows how many plugin and bar problems OmaLint found. Click for the report.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",

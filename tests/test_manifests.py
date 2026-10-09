@@ -3,7 +3,7 @@ import unittest
 
 from helpers import Helpers, context, find, good_manifest, run_check, temp_context, write_plugin
 
-from doctor import inventory
+from omalint import inventory
 
 BROKEN = {
     ("manifest.invalid-json", "acme.badjson"): "error",

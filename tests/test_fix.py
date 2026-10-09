@@ -8,11 +8,11 @@ import unittest
 
 from helpers import FIXTURES, Helpers, cli, directory_args, snapshot, temp_context
 
-from doctor import cli as command_line
-from doctor import fixes
-from doctor.model import Finding
+from omalint import cli as command_line
+from omalint import fixes
+from omalint.model import Finding
 
-BACKUP = re.compile(r"^shell\.json\.bak\.omadoctor\.\d+$")
+BACKUP = re.compile(r"^shell\.json\.bak\.omalint\.\d+$")
 
 
 def removal(**action):

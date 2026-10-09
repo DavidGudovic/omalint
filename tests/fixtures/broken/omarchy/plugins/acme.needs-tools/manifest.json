@@ -12,6 +12,6 @@
     "barWidget": "Widget.qml"
   },
   "dependencies": [
-    "omadoctor-fixture-manifest-tool"
+    "omalint-fixture-manifest-tool"
   ]
 }

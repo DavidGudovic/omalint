@@ -43,7 +43,7 @@ def _names(value: str) -> list:
 
 def parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
-        prog="omadoctor", description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
+        prog="omalint", description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     mode = cli.add_mutually_exclusive_group()
     mode.add_argument("--json", action="store_true", help="print the report as JSON")
@@ -57,7 +57,7 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--config-dir", type=Path, metavar="DIR", help="Omarchy config directory (default: ~/.config/omarchy)")
     cli.add_argument("--hypr-dir", type=Path, metavar="DIR", help="Hyprland config directory (default: ~/.config/hypr)")
     cli.add_argument("--omarchy-path", type=Path, metavar="DIR", help="Omarchy install (default: $OMARCHY_PATH)")
-    cli.add_argument("--version", action="version", version=f"omadoctor {VERSION}")
+    cli.add_argument("--version", action="version", version=f"omalint {VERSION}")
     return cli
 
 
@@ -82,9 +82,9 @@ def run_checks(ctx: Context, names) -> tuple:
             results[name] = CHECKS[name].check(ctx, inv)
         except Exception as error:  # one broken check must not hide the others
             results[name] = Result([Finding(
-                "doctor", "doctor.check-crashed", WARN, name,
+                "omalint", "omalint.check-crashed", WARN, name,
                 f"The {name} check stopped unexpectedly ({type(error).__name__}: {error}).",
-                "This is a bug in omadoctor; please report it.",
+                "This is a bug in omalint; please report it.",
             )])
     return inv, results
 
@@ -130,7 +130,7 @@ def _fix(ctx: Context, inv, results, dry_run: bool, color: bool) -> bool:
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
     if args.dry_run and not args.fix:
-        print("omadoctor: --dry-run only makes sense with --fix", file=sys.stderr)
+        print("omalint: --dry-run only makes sense with --fix", file=sys.stderr)
         return 2
     names = [name for name in (args.only or CHECKS) if name not in args.skip]
     color = not args.no_color and sys.stdout.isatty() and "NO_COLOR" not in os.environ
@@ -149,18 +149,18 @@ def main(argv=None) -> int:
         else:
             width = min(shutil.get_terminal_size((100, 24)).columns, 110) - 2
             count = len(inv.third_party)
-            title = f"OmaDoctor: {count} plugin{'' if count == 1 else 's'} in {ctx.display(ctx.plugins_dir)}"
+            title = f"OmaLint: {count} plugin{'' if count == 1 else 's'} in {ctx.display(ctx.plugins_dir)}"
             sys.stdout.write(report.as_text(results, color, width, title))
         sys.stdout.flush()
     except fixes.FixError as error:
-        print(f"omadoctor: {error}", file=sys.stderr)
+        print(f"omalint: {error}", file=sys.stderr)
         return 2
     except BrokenPipeError:
-        # The reader went away (`omadoctor | head`). Point stdout somewhere harmless so
+        # The reader went away (`omalint | head`). Point stdout somewhere harmless so
         # Python does not complain while exiting; the exit status still reports the findings.
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     except OSError as error:
-        print(f"omadoctor: {error}", file=sys.stderr)
+        print(f"omalint: {error}", file=sys.stderr)
         return 2
     totals = report.summary(results)
     return 1 if totals["errors"] or (args.strict and totals["warnings"]) else 0

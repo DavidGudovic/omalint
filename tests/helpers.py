@@ -1,4 +1,4 @@
-"""Shared paths, builders and fakes for the omadoctor tests."""
+"""Shared paths, builders and fakes for the omalint tests."""
 
 import hashlib
 import json
@@ -10,15 +10,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"
-CLI = ROOT / "bin" / "omadoctor"
+CLI = ROOT / "bin" / "omalint"
 
 sys.dont_write_bytecode = True
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from doctor import inventory  # noqa: E402
-from doctor.checks import CHECKS  # noqa: E402
-from doctor.model import Context, Run  # noqa: E402
+from omalint import inventory  # noqa: E402
+from omalint.checks import CHECKS  # noqa: E402
+from omalint.model import Context, Run  # noqa: E402
 
 
 def context(name, **overrides):

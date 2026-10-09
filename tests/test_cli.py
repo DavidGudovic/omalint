@@ -54,7 +54,7 @@ class ExitStatusTests(unittest.TestCase):
         result = cli("--no-color", *fixture_args("broken"))
         self.assertEqual(result.returncode, 1)
         self.assertIn("ERROR", result.stdout)
-        self.assertIn("omadoctor --fix", result.stdout)
+        self.assertIn("omalint --fix", result.stdout)
 
     def test_warnings_alone_exit_zero(self):
         self.assertEqual(cli("--no-color", *fixture_args("fixable")).returncode, 0)
@@ -71,7 +71,7 @@ class JsonReportTests(unittest.TestCase):
         self.assertEqual(self.result.returncode, 1)
 
     def test_top_level_fields(self):
-        self.assertEqual(self.report["tool"], "omadoctor")
+        self.assertEqual(self.report["tool"], "omalint")
         self.assertTrue(self.report["version"])
         self.assertIs(self.report["ok"], False)
 
@@ -133,7 +133,7 @@ class HelpTests(unittest.TestCase):
     def test_version_prints_the_name_and_a_version(self):
         result = cli("--version")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertRegex(result.stdout, r"omadoctor \d+\.\d+")
+        self.assertRegex(result.stdout, r"omalint \d+\.\d+")
 
     def test_help_mentions_every_check(self):
         result = cli("--help")
@@ -194,10 +194,10 @@ class EntryScriptTests(Helpers, unittest.TestCase):
         root = self.tempdir()
         ignore = shutil.ignore_patterns("__pycache__")
         shutil.copytree(ROOT / "bin", root / "bin", ignore=ignore)
-        shutil.copytree(ROOT / "doctor", root / "doctor", ignore=ignore)
+        shutil.copytree(ROOT / "omalint", root / "omalint", ignore=ignore)
         env = {k: v for k, v in os.environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
         result = subprocess.run(
-            [sys.executable, str(root / "bin" / "omadoctor"), "--no-color", *fixture_args("healthy")],
+            [sys.executable, str(root / "bin" / "omalint"), "--no-color", *fixture_args("healthy")],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, env=env, timeout=120,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -205,14 +205,14 @@ class EntryScriptTests(Helpers, unittest.TestCase):
         self.assertEqual(leftovers, [])
 
     def test_works_through_a_symlink(self):
-        link = self.tempdir() / "omadoctor"
+        link = self.tempdir() / "omalint"
         os.symlink(CLI, link)
         result = subprocess.run(
             [sys.executable, "-B", str(link), "--version"],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("omadoctor", result.stdout)
+        self.assertIn("omalint", result.stdout)
 
 
 if __name__ == "__main__":

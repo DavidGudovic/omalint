@@ -3,9 +3,9 @@ import unittest
 
 from helpers import FIXTURES, FakeRun, Helpers, context, find, run_check
 
-from doctor import inventory
-from doctor.checks import health
-from doctor.model import Run
+from omalint import inventory
+from omalint.checks import health
+from omalint.model import Run
 
 PLUGINS_DIR = "/home/user/.config/omarchy/plugins"
 PLUGIN_IDS = ["acme.good", "acme.dup", "omarchy.hijack"]

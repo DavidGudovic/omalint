@@ -6,7 +6,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "io.github.davidgudovic.omadoctor"
+  moduleName: "io.github.davidgudovic.omalint"
 
   property int errors: 0
   property int warnings: 0
@@ -17,14 +17,14 @@ BarWidget {
   // `omarchy bar set` stores a string unless it is given --json.
   readonly property bool alwaysShow: String(setting("alwaysShow", false)) === "true"
   readonly property int refreshIntervalSec: Math.max(60, Number(setting("refreshIntervalSec", 1800)) || 1800)
-  readonly property string doctor: decodeURIComponent(String(Qt.resolvedUrl("bin/omadoctor")).replace(/^file:\/\//, ""))
+  readonly property string script: decodeURIComponent(String(Qt.resolvedUrl("bin/omalint")).replace(/^file:\/\//, ""))
   readonly property string summary: {
     if (failure) return failure
-    if (!problems) return "OmaDoctor: no problems found"
+    if (!problems) return "OmaLint: no problems found"
     var parts = []
     if (errors) parts.push(errors + (errors === 1 ? " error" : " errors"))
     if (warnings) parts.push(warnings + (warnings === 1 ? " warning" : " warnings"))
-    return "OmaDoctor: " + parts.join(", ")
+    return "OmaLint: " + parts.join(", ")
   }
 
   function refresh() {
@@ -35,14 +35,14 @@ BarWidget {
   // once for each.
   function report() {
     if (root.bar) root.bar.run("omarchy-launch-floating-terminal-with-presentation "
-      + Util.shellQuote(Util.shellQuote(root.doctor)))
+      + Util.shellQuote(Util.shellQuote(root.script)))
   }
 
   function apply(text, exitCode) {
     var totals = null
     try { totals = JSON.parse(text).summary } catch (e) {}
     if (!totals || exitCode > 1) {
-      failure = "OmaDoctor could not run (exit status " + exitCode + ")"
+      failure = "OmaLint could not run (exit status " + exitCode + ")"
       return
     }
     failure = ""
@@ -55,7 +55,7 @@ BarWidget {
   implicitHeight: button.implicitHeight
 
   IpcHandler {
-    target: "io.github.davidgudovic.omadoctor"
+    target: "io.github.davidgudovic.omalint"
 
     function refresh(): void { root.broadcast("refresh") }
     function report(): void { root.report() }
@@ -63,7 +63,7 @@ BarWidget {
 
   Process {
     id: check
-    command: ["/usr/bin/python3", root.doctor, "--json"]
+    command: ["/usr/bin/python3", root.script, "--json"]
     stdout: StdioCollector {
       id: output
       waitForEnd: true

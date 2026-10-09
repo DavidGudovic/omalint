@@ -82,7 +82,7 @@ def check(ctx: Context, inv: Inventory) -> Result:
             return (f"is installed in {broken.dir.name}, but its manifest does not load",
                     "Fix or reinstall the plugin (see Plugin manifests).", False)
         if plugin_id.startswith(RESERVED):
-            # Never removed automatically: a built-in this version of OmaDoctor cannot find
+            # Never removed automatically: a built-in this version of OmaLint cannot find
             # (moved by an Omarchy update, say) must not cost the user a working widget.
             return ("is not a built-in of this Omarchy version",
                     "Check the id against `omarchy plugin list`, and remove the entry by hand if it is a leftover.",

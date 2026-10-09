@@ -3,8 +3,8 @@ import unittest
 
 from helpers import FakeRun, Helpers, context, find, run_check
 
-from doctor.checks import deps
-from doctor.model import Run
+from omalint.checks import deps
+from omalint.model import Run
 
 
 def requirements(body, heading="Requirements"):
@@ -84,8 +84,8 @@ class BrokenFixtureTests(Helpers, unittest.TestCase):
 
     def test_missing_names_the_manifest_and_readme_tools(self):
         message = find(self.result, "deps.missing", "acme.needs-tools").message
-        self.assertIn("omadoctor-fixture-manifest-tool", message)
-        self.assertIn("omadoctor-fixture-missing-tool", message)
+        self.assertIn("omalint-fixture-manifest-tool", message)
+        self.assertIn("omalint-fixture-missing-tool", message)
 
     def test_missing_ignores_installed_unrelated_and_out_of_section_tools(self):
         message = find(self.result, "deps.missing", "acme.needs-tools").message
@@ -95,7 +95,7 @@ class BrokenFixtureTests(Helpers, unittest.TestCase):
 
     def test_optional_tool_is_only_a_note(self):
         message = find(self.result, "deps.optional-missing", "acme.needs-tools").message
-        self.assertIn("omadoctor-fixture-optional-tool", message)
+        self.assertIn("omalint-fixture-optional-tool", message)
 
 
 class HealthyFixtureTests(Helpers, unittest.TestCase):
@@ -116,7 +116,7 @@ class MissingTests(unittest.TestCase):
     def test_absolute_path_that_does_not_exist_is_missing(self):
         fake = FakeRun()
         ctx = context("healthy", run=fake)
-        self.assertEqual(deps.missing(ctx, ["/nonexistent/omadoctor-fixture-tool"]), {"/nonexistent/omadoctor-fixture-tool"})
+        self.assertEqual(deps.missing(ctx, ["/nonexistent/omalint-fixture-tool"]), {"/nonexistent/omalint-fixture-tool"})
         self.assertEqual(fake.calls, [])
 
     def test_absolute_path_that_exists_is_present(self):

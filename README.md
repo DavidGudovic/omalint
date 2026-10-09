@@ -1,16 +1,16 @@
-# OmaDoctor
+# OmaLint
 
 A health check for your [Omarchy](https://omarchy.org) shell plugins and bar setup.
 
 Install enough marketplace plugins and something eventually goes quietly wrong: a widget
 leaves an empty slot on the bar, a key does two things at once, a plugin stops loading
-after an update. The shell says so only in its log. OmaDoctor reads the same files the
+after an update. The shell says so only in its log. OmaLint reads the same files the
 shell reads, tells you in plain language what is wrong, and suggests the fix.
 
-![OmaDoctor report and bar widget](preview.png)
+![OmaLint report and bar widget](preview.png)
 
 It is read-only. The one thing it will ever change is your `shell.json`, only when you
-run `omadoctor --fix`, and only after saving a backup and showing you the diff.
+run `omalint --fix`, and only after saving a backup and showing you the diff.
 
 ## What it checks
 
@@ -29,7 +29,7 @@ the shell copes), or a note (worth knowing, nothing to do).
 ## Requirements
 
 - Omarchy 4 (the Quickshell-based shell)
-- `python3`, which Omarchy ships. OmaDoctor uses only the standard library and runs `/usr/bin/python3`.
+- `python3`, which Omarchy ships. OmaLint uses only the standard library and runs `/usr/bin/python3`.
 
 It also uses these when they are present, and skips the related check when they are not;
 all of them are part of an Omarchy install:
@@ -44,53 +44,53 @@ No pip packages, no daemon, no network access, no elevated privileges.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/DavidGudovic/omadoctor.git
+omarchy plugin add https://github.com/DavidGudovic/omalint.git
 ```
 
-Omarchy clones the repository into `~/.config/omarchy/plugins/io.github.davidgudovic.omadoctor/`
+Omarchy clones the repository into `~/.config/omarchy/plugins/io.github.davidgudovic.omalint/`
 and leaves it disabled so you can read the code first.
 
 To use the command from anywhere, link it into `~/.local/bin` (already on `PATH` in Omarchy):
 
 ```bash
-ln -s ~/.config/omarchy/plugins/io.github.davidgudovic.omadoctor/bin/omadoctor ~/.local/bin/omadoctor
+ln -s ~/.config/omarchy/plugins/io.github.davidgudovic.omalint/bin/omalint ~/.local/bin/omalint
 ```
 
 To put the widget on the bar (optional):
 
 ```bash
-omarchy plugin enable io.github.davidgudovic.omadoctor
+omarchy plugin enable io.github.davidgudovic.omalint
 ```
 
 ## Usage
 
 ```bash
-omadoctor                    # the full report
-omadoctor --only bar,keys    # just these checks
-omadoctor --skip health      # everything but this one
-omadoctor --json             # the same report, for scripts
-omadoctor --fix --dry-run    # show what --fix would change
-omadoctor --fix              # remove dead shell.json entries (backup + diff)
-omadoctor --strict           # also exit 1 when there are warnings
+omalint                    # the full report
+omalint --only bar,keys    # just these checks
+omalint --skip health      # everything but this one
+omalint --json             # the same report, for scripts
+omalint --fix --dry-run    # show what --fix would change
+omalint --fix              # remove dead shell.json entries (backup + diff)
+omalint --strict           # also exit 1 when there are warnings
 ```
 
 Exit status is `0` when there are no errors, `1` when there are (so it can gate a hook
-or a CI job), and `2` when OmaDoctor itself could not run.
+or a CI job), and `2` when OmaLint itself could not run.
 
 `--config-dir`, `--hypr-dir` and `--omarchy-path` point it at another setup, such as a
 dotfiles checkout in CI. Pointed away from your own session, or run with `--no-live`, it
 does not query the running shell, the journal or Hyprland.
 
 For example, to be told after every `omarchy update` if something broke, save this as a
-file named `omadoctor-after-update`:
+file named `omalint-after-update`:
 
 ```bash
 #!/bin/bash
-omadoctor --skip health >/dev/null ||
-  omarchy-notification-send "OmaDoctor found plugin errors" "Run omadoctor for the report"
+omalint --skip health >/dev/null ||
+  omarchy-notification-send "OmaLint found plugin errors" "Run omalint for the report"
 ```
 
-and install it with `omarchy hook install post-update omadoctor-after-update`. Omarchy
+and install it with `omarchy hook install post-update omalint-after-update`. Omarchy
 copies it into `~/.config/omarchy/hooks/post-update.d/`; delete it there to undo.
 
 ## What `--fix` does
@@ -104,7 +104,7 @@ shell already ignores. It removes
 - a `bar.id` naming a bar that is not installed.
 
 The bar looks the same before and after. Before writing, it copies the file to
-`shell.json.bak.omadoctor.<timestamp>` next to it and prints a unified diff; the output
+`shell.json.bak.omalint.<timestamp>` next to it and prints a unified diff; the output
 ends with the `cp` command that undoes the change.
 
 It is deliberately cautious. It leaves an entry alone when the plugin might be broken
@@ -112,7 +112,7 @@ rather than gone, never removes anything in the `omarchy.*` namespace, and does 
 touch a widget that is placed twice, because the bar draws both copies and which one
 stays is your call. In each case the report says why.
 
-Everything else in the report comes with a suggestion but is yours to fix: OmaDoctor
+Everything else in the report comes with a suggestion but is yours to fix: OmaLint
 never edits plugin code, your Hyprland config, or anything under `/usr/share/omarchy`.
 
 ## The bar widget
@@ -133,15 +133,15 @@ Settings, in the widget's `shell.json` entry or with `omarchy bar set`:
 | `refreshIntervalSec` | `1800` | Seconds between background checks (minimum 60) |
 
 ```bash
-omarchy bar set io.github.davidgudovic.omadoctor alwaysShow true
-omarchy bar set io.github.davidgudovic.omadoctor refreshIntervalSec 600 --json
-omarchy-shell io.github.davidgudovic.omadoctor refresh    # re-check now
-omarchy-shell io.github.davidgudovic.omadoctor report     # open the report
+omarchy bar set io.github.davidgudovic.omalint alwaysShow true
+omarchy bar set io.github.davidgudovic.omalint refreshIntervalSec 600 --json
+omarchy-shell io.github.davidgudovic.omalint refresh    # re-check now
+omarchy-shell io.github.davidgudovic.omalint report     # open the report
 ```
 
 ## What it reads, runs and writes
 
-OmaDoctor reads `~/.config/omarchy/shell.json`, the folders in `~/.config/omarchy/plugins/`,
+OmaLint reads `~/.config/omarchy/shell.json`, the folders in `~/.config/omarchy/plugins/`,
 the Lua files your `~/.config/hypr/hyprland.lua` loads, and Omarchy's own defaults under
 `$OMARCHY_PATH`.
 
@@ -150,20 +150,20 @@ It runs these local, read-only commands: `sh -c 'command -v …'`, `pacman -Qq`,
 `omarchy-shell shell listPlugins`, `hyprctl -j binds` and `journalctl --user -t omarchy-shell`.
 It never fetches, never contacts a network, and sends nothing anywhere.
 
-It writes nothing, with one exception: `omadoctor --fix` rewrites `shell.json` and leaves
-a `shell.json.bak.omadoctor.<timestamp>` backup beside it. There is no cache, no state
+It writes nothing, with one exception: `omalint --fix` rewrites `shell.json` and leaves
+a `shell.json.bak.omalint.<timestamp>` backup beside it. There is no cache, no state
 directory and no log file.
 
 ## Remove
 
 ```bash
-omarchy plugin remove io.github.davidgudovic.omadoctor
-rm -f ~/.local/bin/omadoctor
-rm -f ~/.config/omarchy/shell.json.bak.omadoctor.*    # backups from --fix, if you ran it
+omarchy plugin remove io.github.davidgudovic.omalint
+rm -f ~/.local/bin/omalint
+rm -f ~/.config/omarchy/shell.json.bak.omalint.*    # backups from --fix, if you ran it
 ```
 
 `omarchy plugin remove` takes the widget off the bar and deletes the plugin folder. The
-two `rm` lines cover the only other files OmaDoctor can have created.
+two `rm` lines cover the only other files OmaLint can have created.
 
 ## How sure is it
 
