@@ -110,6 +110,11 @@ class GitCheckoutTests(Helpers, unittest.TestCase):
     def test_clean_checkout_has_no_local_changes(self):
         self.assertFindings(run_check("stale", self.ctx), {})
 
+    def test_the_note_counts_the_checkouts_compared(self):
+        self.assertEqual(
+            run_check("stale", self.ctx).notes, ["1 git checkout compared with their last commit (no network)."]
+        )
+
     def test_changed_and_untracked_files_are_reported(self):
         self.edit_and_add_a_file()
         result = run_check("stale", self.ctx)
@@ -149,6 +154,22 @@ class GitCheckoutTests(Helpers, unittest.TestCase):
         self.assertEqual(state(), before)
 
 
+class NoCheckoutTests(Helpers, unittest.TestCase):
+    def test_without_plugins_the_note_says_none_were_installed_with_git(self):
+        result = run_check("stale", temp_context(self.tempdir()))
+        self.assertEqual(result.notes, ["No plugins were installed with git."])
+
+    def test_plugins_without_a_git_folder_get_the_same_note(self):
+        ctx = temp_context(self.tempdir())
+        write_plugin(ctx.config_dir, "acme.x")
+        self.assertEqual(run_check("stale", ctx).notes, ["No plugins were installed with git."])
+
+    def test_the_fixtures_without_checkouts_get_the_same_note(self):
+        for name in ("healthy", "broken"):
+            with self.subTest(name=name):
+                self.assertEqual(run_check("stale", context(name)).notes, ["No plugins were installed with git."])
+
+
 class GitUnavailableTests(Helpers, unittest.TestCase):
     def test_checkout_that_git_cannot_report_on_gives_a_note_not_a_finding(self):
         root = self.tempdir()
@@ -164,6 +185,14 @@ class GitUnavailableTests(Helpers, unittest.TestCase):
         (write_plugin(ctx.config_dir, "acme.x") / ".git").mkdir()
         result = run_check("stale", ctx)
         self.assertTrue(any(note.startswith("0 git checkouts compared") for note in result.notes))
+
+    def test_a_checkout_that_git_could_not_report_on_still_counts_as_a_checkout(self):
+        root = self.tempdir()
+        ctx = temp_context(root, run=FakeRun((("git",), Run("missing"))))
+        (write_plugin(ctx.config_dir, "acme.x") / ".git").mkdir()
+        result = run_check("stale", ctx)
+        self.assertEqual(len(result.notes), 2)
+        self.assertNotIn("No plugins were installed with git.", result.notes)
 
 
 if __name__ == "__main__":

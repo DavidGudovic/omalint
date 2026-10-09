@@ -1,7 +1,7 @@
 import sys
 import unittest
 
-from helpers import FakeRun, Helpers, context, find, run_check
+from helpers import FakeRun, Helpers, context, find, run_check, temp_context, write_plugin
 
 from omalint.checks import deps
 from omalint.model import Run
@@ -123,6 +123,28 @@ class HealthyFixtureTests(Helpers, unittest.TestCase):
     def test_only_an_optional_note(self):
         result = run_check("deps", context("healthy"))
         self.assertFindings(result, {("deps.optional-missing", "acme.clock-plus"): "info"})
+
+
+class NoteTests(Helpers, unittest.TestCase):
+    def notes(self, ctx):
+        return run_check("deps", ctx).notes
+
+    def test_without_plugins_the_note_says_no_plugin_lists_required_commands(self):
+        self.assertEqual(self.notes(temp_context(self.tempdir())), ["No plugin lists required commands."])
+
+    def test_a_plugin_that_lists_nothing_gets_the_same_note(self):
+        ctx = temp_context(self.tempdir())
+        write_plugin(ctx.config_dir, "acme.x")
+        self.assertEqual(self.notes(ctx), ["No plugin lists required commands."])
+
+    def test_the_note_counts_the_declared_commands(self):
+        self.assertEqual(self.notes(context("healthy")), ["2 declared commands checked with `command -v`."])
+
+    def test_one_declared_command_is_singular(self):
+        ctx = temp_context(self.tempdir(), run=FakeRun((("sh",), Run("ok", 0, ""))))
+        plugin = write_plugin(ctx.config_dir, "acme.x")
+        (plugin / "README.md").write_text("# X\n\n## Requirements\n\n- `jq`\n", encoding="utf-8")
+        self.assertEqual(self.notes(ctx), ["1 declared command checked with `command -v`."])
 
 
 class MissingTests(unittest.TestCase):

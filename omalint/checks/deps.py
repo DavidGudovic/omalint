@@ -196,7 +196,10 @@ def check(ctx: Context, inv: Inventory) -> Result:
                 ctx.display(plugin.dir),
             ))
 
-    result.notes.append(
-        f"{len(everything)} declared command{'s' if len(everything) != 1 else ''} checked with `command -v`."
-    )
+    if everything:
+        result.notes.append(
+            f"{len(everything)} declared command{'s' if len(everything) != 1 else ''} checked with `command -v`."
+        )
+    else:
+        result.notes.append("No plugin lists required commands.")
     return result

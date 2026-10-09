@@ -22,9 +22,12 @@ Item {
   // Finished check runs, whether or not they produced a report.
   property int runs: 0
 
+  // False until the first check has finished: there is nothing to report yet.
+  readonly property bool checked: runs > 0
   readonly property int problems: errors + warnings
   readonly property string script: decodeURIComponent(String(Qt.resolvedUrl("bin/omalint")).replace(/^file:\/\//, ""))
   readonly property string summary: {
+    if (!checked) return "OmaLint: first check pending"
     if (failure) return failure
     if (!problems) return "OmaLint: no problems found"
     var parts = []
@@ -52,6 +55,22 @@ Item {
     if (!check.running) check.running = true
   }
 
+  // The bar configuration last seen, as text; empty until the host has injected one.
+  property string seenConfig: ""
+
+  // The count would otherwise be stale until the next timed check after the user fixes something.
+  // The host reassigns barConfig even when nothing changed, so the content is compared, not the object.
+  function noteConfig() {
+    var text = shell && shell.barConfig ? JSON.stringify(shell.barConfig) : ""
+    if (text === seenConfig) return
+    var first = seenConfig === ""
+    seenConfig = text
+    // The configuration that comes with the injection is the baseline, not a change.
+    if (!first) recheck.restart()
+  }
+
+  onShellChanged: noteConfig()
+
   function report() {
     // execArgv passes argv as is and the launcher evaluates its argument once, so the path is quoted once.
     Util.execArgv(["omarchy-launch-floating-terminal-with-presentation", Util.shellQuote(root.script)])
@@ -76,6 +95,19 @@ Item {
 
     function refresh(): void { root.refresh() }
     function report(): void { root.report() }
+  }
+
+  // The host reassigns barConfig whenever shell.json changes. `shell` is null until it is injected.
+  Connections {
+    target: root.shell
+    function onBarConfigChanged() { root.noteConfig() }
+  }
+
+  Timer {
+    id: recheck
+    interval: 1000
+    // A check already under way read the old file; come back when it is done.
+    onTriggered: check.running ? recheck.restart() : root.refresh()
   }
 
   Process {

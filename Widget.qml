@@ -15,6 +15,7 @@ BarWidget {
   readonly property int errors: service ? service.errors : 0
   readonly property int warnings: service ? service.warnings : 0
   readonly property string failure: service ? service.failure : "OmaLint: its background service is not loaded"
+  readonly property bool checked: service ? service.checked : false
   readonly property int problems: errors + warnings
   readonly property string summary: service ? service.summary : failure
   // `omarchy bar set` stores a string unless it is given --json.
@@ -44,7 +45,7 @@ BarWidget {
     text: counted ? count + " " + glyph : glyph
     slotSize: Style.bar.iconSlot + (counted ? Math.ceil(countMetrics.advanceWidth) : 0)
     active: root.errors > 0
-    dimmed: root.failure !== ""
+    dimmed: root.failure !== "" || !root.checked
     tooltipText: root.summary
     onPressed: function(b) {
       if (!root.service) return

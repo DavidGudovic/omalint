@@ -170,9 +170,12 @@ def check(ctx: Context, inv: Inventory) -> Result:
             ))
 
     compared = checkouts - unknown
-    result.notes.append(
-        f"{compared} git checkout{'s' if compared != 1 else ''} compared with their last commit (no network)."
-    )
+    if checkouts:
+        result.notes.append(
+            f"{compared} git checkout{'s' if compared != 1 else ''} compared with their last commit (no network)."
+        )
+    else:
+        result.notes.append("No plugins were installed with git.")
     if unknown:
         result.notes.append(
             f"Local edits were not checked for {unknown} checkout{'s' if unknown > 1 else ''}: "

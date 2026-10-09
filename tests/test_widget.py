@@ -26,14 +26,24 @@ NEEDED = (SHELL / "Commons", SHELL / "Ui", SHELL / "services" / "PluginShellApi.
 AVAILABLE = bool(QUICKSHELL and all(path.exists() for path in NEEDED))
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
+PENDING = re.compile(
+    r"HARNESS pending widgetA=(?P<summary>[^|]*)\|(?P<visible>\w+) service=(?P<service>[^|]*)\|(?P<checked>\w+)"
+    r" dimmed=(?P<dimmed>\w+)$"
+)
 FIRST_RUN = re.compile(
     r"HARNESS first-run errors=(?P<errors>\d+) warnings=(?P<warnings>\d+) failure=(?P<failure>.*)"
     r" runs=(?P<runs>\d+) interval=(?P<interval>\d+)"
-    r" widgetA=(?P<a>\d+,\d+,\d+\|[^|]*\|\w+) widgetB=(?P<b>\d+,\d+,\d+\|[^|]*\|\w+)$"
+    r" widgetA=(?P<a>\d+,\d+,\d+\|[^|]*\|\w+) widgetB=(?P<b>\d+,\d+,\d+\|[^|]*\|\w+) dimmed=(?P<dimmed>\w+)$"
 )
 SECOND_RUN = re.compile(r"HARNESS second-run runs=2 afterMs=(?P<after>\d+)$")
+UNCHANGED = re.compile(r"HARNESS unchanged-config runs=(?P<runs>\d+)$")
+THIRD_RUN = re.compile(r"HARNESS third-run runs=(?P<runs>\d+) interval=(?P<interval>\d+) afterMs=(?P<after>\d+)$")
 # The service starts its own check 10 s after it is created; a second run sooner than that was asked for.
 STARTUP_TIMER_MS = 10000
+# How long the harness leaves the identical configuration alone before it changes the content.
+UNCHANGED_WAIT_MS = 2000
+# The service waits 1 s after a change before it checks; allow for the check itself and a slow machine.
+RECHECK_DELAY_MS = (800, 5000)
 QML_ERRORS = ("typeerror", "referenceerror", "is not a type", "failed to load", "unable to assign")
 
 
@@ -141,6 +151,17 @@ class WidgetAndServiceTests(unittest.TestCase):
         errors = [text for text in self.lines if any(word in text.lower() for word in QML_ERRORS)]
         self.assertEqual(errors, [])
 
+    def test_before_the_first_check_the_widget_does_not_say_there_are_no_problems(self):
+        pending = self.line(PENDING)
+        self.assertEqual(pending["summary"], "OmaLint: first check pending")
+        self.assertEqual(pending["service"], "OmaLint: first check pending")
+        self.assertEqual(pending["checked"], "false")
+        self.assertEqual(pending["visible"], "false")
+        self.assertEqual(pending["dimmed"], "true")
+
+    def test_the_widget_is_not_dimmed_once_a_check_has_run(self):
+        self.assertEqual(self.line(FIRST_RUN)["dimmed"], "false")
+
     def test_the_service_ran_the_check_once_and_took_its_settings_from_the_bar_entry(self):
         run = self.line(FIRST_RUN)
         self.assertEqual(
@@ -160,6 +181,23 @@ class WidgetAndServiceTests(unittest.TestCase):
         self.assertEqual(self.ipc.stdout.strip(), "", "the ipc call was refused: " + self.ipc.stdout)
         later = self.line(SECOND_RUN)
         self.assertLess(int(later["after"]), STARTUP_TIMER_MS - 1000, "the run came from the startup timer")
+
+    # The host reassigns the bar configuration whenever shell.json is written, changed or not.
+    def test_the_same_configuration_assigned_again_does_not_start_a_check(self):
+        self.assertEqual(self.line(UNCHANGED)["runs"], "2")
+
+    def test_a_changed_configuration_starts_a_check_about_a_second_later(self):
+        third = self.line(THIRD_RUN)
+        self.assertEqual(third["runs"], "3")
+        self.assertEqual(third["interval"], "300", "the new setting was not read")
+        low, high = RECHECK_DELAY_MS
+        self.assertTrue(low <= int(third["after"]) <= high, f"the check came {third['after']} ms after the change")
+
+    def test_the_check_after_the_change_did_not_come_from_a_timer(self):
+        # Creation, the IPC run, the wait on the identical configuration and the change all precede
+        # the third run; if their sum reached the startup timer's 10 s, that timer could have caused it.
+        total = int(self.line(SECOND_RUN)["after"]) + UNCHANGED_WAIT_MS + int(self.line(THIRD_RUN)["after"])
+        self.assertLess(total, STARTUP_TIMER_MS - 500, "the startup timer could have caused the third run")
 
 
 if __name__ == "__main__":
