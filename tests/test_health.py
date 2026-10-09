@@ -69,9 +69,12 @@ def journal_line(folder, message):
 
 
 class CheckTests(Helpers, unittest.TestCase):
-    def test_missing_omarchy_shell_is_one_warning(self):
+    def test_missing_omarchy_shell_skips_the_check_and_says_so(self):
         ctx, _ = live_context()
-        self.assertFindings(run_check("health", ctx), {("health.no-omarchy-shell", "omarchy-shell"): "warn"})
+        result = run_check("health", ctx)
+        self.assertFindings(result, {})
+        self.assertTrue(result.skipped)
+        self.assertTrue(any("omarchy-shell" in note for note in result.notes))
 
     def test_shell_that_is_not_running_is_an_error(self):
         ctx, _ = live_context((("omarchy-shell", "shell", "ping"), Run("ok", 1, "", "omarchy-shell is not running")))

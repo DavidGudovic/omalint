@@ -27,6 +27,13 @@ _TOKEN = re.compile(r"`([^`\n]+)`")
 _COMMAND = re.compile(r"^[a-z0-9][a-z0-9+_-]{1,39}$")
 _BINARY_PATH = re.compile(r"^/(?:usr/(?:local/)?)?s?bin/[A-Za-z0-9+._-]+$")
 _NOT_COMMANDS = {"true", "false", "null", "left", "right", "center", "top", "bottom"}
+# Backticks also mark things that are not programs: "the `requests` and `psutil` modules",
+# "your user in the `i2c` group", "set `enabled` to `true`".
+_NOUNS = (r"modules?|librar(?:y|ies)|groups?|scopes?|options?|settings?|keys?|fields?|propert(?:y|ies)|flags?"
+          r"|variables?|extensions?|plugins?|fonts?|themes?|services?|permissions?|drivers?|protocols?")
+_RUN = r"`[^`\n]+`(?:(?:\s*,\s*(?:and\s+|or\s+)?|\s+and\s+|\s+or\s+)`[^`\n]+`)*"
+_DESCRIBED = re.compile(rf"{_RUN}(?=\s+(?:python\s+|kernel\s+)?(?:{_NOUNS})\b)", re.I)
+_INTRODUCED = re.compile(rf"\b(?:set|{_NOUNS})\s+{_RUN}", re.I)
 _CHECK = 'for c in "$@"; do command -v "$c" >/dev/null 2>&1 || printf "%s\\n" "$c"; done'
 MAX_README = 1024 * 1024
 
@@ -88,6 +95,7 @@ def readme_requirements(text: str) -> dict:
     found = {}
     for body, optional in _blocks(text):
         optional = optional or bool(_OPTIONAL.search(body))
+        body = _INTRODUCED.sub(" ", _DESCRIBED.sub(" ", body))
         for token in _TOKEN.findall(body):
             words = token.split()
             name = words[0] if words else ""
@@ -173,8 +181,8 @@ def check(ctx: Context, inv: Inventory) -> Result:
                 "deps", "deps.missing", WARN, label,
                 f"{label} needs {_names(absent)} according to its {' and '.join(sources)}, "
                 f"but {'it is' if len(absent) == 1 else 'they are'} not installed.",
-                "Install the package that provides "
-                f"{'it' if len(absent) == 1 else 'each one'} (`omarchy pkg add <package>`); "
+                # No install command here: omalint reports, it does not manage packages.
+                f"Install the package that provides {'it' if len(absent) == 1 else 'each one'}; "
                 "the plugin's README says what it is used for.",
                 ctx.display(plugin.dir),
             ))

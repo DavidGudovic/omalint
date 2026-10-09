@@ -65,6 +65,27 @@ class ReadmeRequirementsTests(unittest.TestCase):
     def test_multi_word_token_uses_its_first_word(self):
         self.assertEqual(requirements("- `gh auth login`"), {"gh": False})
 
+    def test_backticked_words_that_are_not_programs_are_skipped(self):
+        for body in (
+            "- Python 3.11+ with the `requests` and `psutil` modules",
+            "- your user in the `i2c` group",
+            "- load the `i2c-dev` kernel module",
+            "- Set `enabled` to `true`",
+            "- the `notifications` and `repo` scopes",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(requirements(body), {})
+
+    def test_programs_beside_ordinary_words_are_kept(self):
+        self.assertEqual(
+            requirements("- the tools `sh`, `setpriv` and `timeout`"), {"sh": False, "setpriv": False, "timeout": False}
+        )
+        self.assertEqual(
+            requirements("- `git`, `jq`, `python3`, and the `omarchy` CLI"),
+            {"git": False, "jq": False, "python3": False, "omarchy": False},
+        )
+        self.assertEqual(requirements("- `xdg-settings`, and a browser"), {"xdg-settings": False})
+
     def test_dependencies_heading_counts(self):
         self.assertEqual(requirements("- `jq`", heading="Dependencies"), {"jq": False})
 

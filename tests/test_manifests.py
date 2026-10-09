@@ -129,6 +129,19 @@ class ManifestRuleTests(Helpers, unittest.TestCase):
         self.assertFindings(run_check("manifests", self.ctx), {})
         self.assertTrue(self.loadable())
 
+    def test_byte_order_mark_is_tolerated_as_it_is_by_the_shell(self):
+        directory = write_plugin(self.ctx.config_dir, "acme.x")
+        path = directory / "manifest.json"
+        path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
+        self.assertFindings(run_check("manifests", self.ctx), {})
+        self.assertTrue(self.loadable())
+
+    def test_numeric_id_loads_under_its_string_form_with_a_warning(self):
+        result = self.check(good_manifest(5), folder="5")
+        self.assertFindings(result, {("manifest.invalid-id", "5"): "warn"})
+        self.assertTrue(self.loadable("5"))
+        self.assertEqual([p.id for p in inventory.build(self.ctx).third_party], ["5"])
+
     def test_file_that_is_not_text_at_all_is_invalid_json(self):
         directory = write_plugin(self.ctx.config_dir, "acme.x")
         (directory / "manifest.json").write_bytes(b"\xff\xfe\x00{")

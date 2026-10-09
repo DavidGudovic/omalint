@@ -82,6 +82,11 @@ class LuaScanTests(unittest.TestCase):
         calls = lua.scan('if cond then\n  o.bind("A", "x", "y")\nelse\n  o.bind("B", "x", "y")\nend\no.bind("C", "x", "y")')
         self.assertEqual([c.conditions for c in calls], [["cond"], [""], []])
 
+    def test_arms_of_one_if_statement_are_told_apart(self):
+        source = ('if a then\n o.bind("A", "x", "y")\nelseif b then\n o.bind("A", "x", "y")\n'
+                  'else\n o.bind("A", "x", "y")\nend\nif c then\n o.bind("A", "x", "y")\nend\no.bind("A", "x", "y")')
+        self.assertEqual([c.arms for c in lua.scan(source)], [((1, 0),), ((1, 1),), ((1, 2),), ((2, 0),), ()])
+
     def test_require_is_a_call_with_the_module_name(self):
         (call,) = lua.scan('require("a.b")')
         self.assertEqual((call.name, call.args), ("require", ["a.b"]))
@@ -175,6 +180,44 @@ class TempConfigTests(Helpers, unittest.TestCase):
         result = run_check("keys", context("broken", hypr_dir=root / "hypr"))
         self.assertNotIn(("keys.conflict", "SUPER + F"), pairs(result))
         self.assertIn(("keys.conflict", "SUPER + G"), pairs(result))
+
+    def with_bindings(self, text, **overrides):
+        root = self.tempdir()
+        (root / "hypr").mkdir()
+        (root / "hypr" / "hyprland.lua").write_text(text, encoding="utf-8")
+        return temp_context(root, **overrides)
+
+    def test_if_and_else_arms_binding_one_key_are_alternatives(self):
+        ctx = self.with_bindings(
+            'if host == "laptop" then\n  o.bind("SUPER + B", "Browser", "firefox")\n'
+            'else\n  o.bind("SUPER + B", "Browser", "chromium")\nend\n'
+        )
+        self.assertFindings(run_check("keys", ctx), {})
+
+    def test_same_arm_binding_a_key_twice_is_still_a_conflict(self):
+        ctx = self.with_bindings(
+            'if host == "laptop" then\n  o.bind("SUPER + B", "One", "a")\n  o.bind("SUPER + B", "Two", "b")\nend\n'
+        )
+        self.assertEqual(pairs(run_check("keys", ctx)), {("keys.conflict", "SUPER + B")})
+
+    def test_two_separate_if_statements_are_not_alternatives(self):
+        ctx = self.with_bindings(
+            'if a then\n  o.bind("SUPER + B", "One", "a")\nend\nif b then\n  o.bind("SUPER + B", "Two", "b")\nend\n'
+        )
+        self.assertEqual(pairs(run_check("keys", ctx)), {("keys.conflict", "SUPER + B")})
+
+    def test_config_binding_without_a_description_is_not_blamed_on_a_plugin(self):
+        table = [live_bind(64, "B", "Browser"), live_bind(64, "B", "")]
+        fake = FakeRun((("hyprctl", "-j", "binds"), Run("ok", 0, json.dumps(table))))
+        ctx = self.with_bindings(
+            'o.bind("SUPER + B", "Browser", "firefox")\nhl.bind("SUPER + B", hl.dsp.exec_cmd("kitty"))\n',
+            live=True, run=fake,
+        )
+        finding = find(run_check("keys", ctx), "keys.conflict", "SUPER + B")
+        self.assertNotIn("added while Hyprland was running", finding.message)
+        self.assertIn("hyprland.lua:1", finding.message)
+        self.assertIn("hyprland.lua:2", finding.message)
+        self.assertNotIn("plugin", finding.fix)
 
     def test_hypr_dir_without_lua_files_is_skipped(self):
         root = self.tempdir()

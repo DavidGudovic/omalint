@@ -118,6 +118,23 @@ class GitCheckoutTests(Helpers, unittest.TestCase):
         self.assertIn("Widget.qml", message)
         self.assertIn("notes.txt", message)
 
+    def test_advice_for_edited_files_keeps_updates_possible(self):
+        self.edit_and_add_a_file()
+        finding = find(run_check("stale", self.ctx), "stale.local-changes", "acme.x")
+        # A fast-forward only fails when the update touches the edited file, and a
+        # local commit would block every later update, so neither may be claimed or advised.
+        self.assertNotIn("cannot fast-forward", finding.message)
+        self.assertNotIn("commit", finding.fix)
+        self.assertIn("stash", finding.fix)
+        self.assertIn("restore", finding.fix)
+
+    def test_untracked_files_alone_get_their_own_advice(self):
+        (self.plugin / "notes.txt").write_text("mine\n", encoding="utf-8")
+        finding = find(run_check("stale", self.ctx), "stale.local-changes", "acme.x")
+        self.assertIn("1 untracked (notes.txt)", finding.message)
+        self.assertNotIn("restore", finding.fix)
+        self.assertNotIn("stash", finding.fix)
+
     def test_running_the_check_does_not_touch_the_repository(self):
         self.edit_and_add_a_file()
         os.utime(self.plugin / "manifest.json", (1_000_000_000, 1_000_000_000))
@@ -139,7 +156,14 @@ class GitUnavailableTests(Helpers, unittest.TestCase):
         (write_plugin(ctx.config_dir, "acme.x") / ".git").mkdir()
         result = run_check("stale", ctx)
         self.assertFindings(result, {})
-        self.assertTrue(any("git" in note and "could not" in note for note in result.notes))
+        self.assertTrue(any("not checked for 1 checkout" in note and "git" in note for note in result.notes))
+
+    def test_notes_do_not_claim_a_comparison_that_did_not_happen(self):
+        root = self.tempdir()
+        ctx = temp_context(root, run=FakeRun((("git",), Run("missing"))))
+        (write_plugin(ctx.config_dir, "acme.x") / ".git").mkdir()
+        result = run_check("stale", ctx)
+        self.assertTrue(any(note.startswith("0 git checkouts compared") for note in result.notes))
 
 
 if __name__ == "__main__":

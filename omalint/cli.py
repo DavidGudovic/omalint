@@ -7,11 +7,12 @@ import json
 import os
 import shutil
 import sys
+import traceback
 from pathlib import Path
 
 from . import fixes, inventory, report
 from .checks import CHECKS
-from .model import WARN, Context, Finding, Result
+from .model import ERROR, Context, Finding, Result
 
 VERSION = "0.1.0"
 
@@ -27,7 +28,7 @@ Checks (choose with --only / --skip):
   health     the shell is running and plugins are not logging errors
 
 Nothing is changed unless you pass --fix, and --fix only edits
-~/.config/omarchy/shell.json after saving a shell.json.bak.<timestamp> copy.
+~/.config/omarchy/shell.json after saving a shell.json.bak.omalint.<timestamp> copy.
 
 Exit status: 0 no errors, 1 errors found (with --strict: or warnings), 2 could not run.
 """
@@ -81,9 +82,11 @@ def run_checks(ctx: Context, names) -> tuple:
         try:
             results[name] = CHECKS[name].check(ctx, inv)
         except Exception as error:  # one broken check must not hide the others
+            # An error, so that a hook or CI job gating on the exit status does not pass unchecked.
             results[name] = Result([Finding(
-                "omalint", "omalint.check-crashed", WARN, name,
-                f"The {name} check stopped unexpectedly ({type(error).__name__}: {error}).",
+                "omalint", "omalint.check-crashed", ERROR, name,
+                f"The {name} check stopped unexpectedly ({type(error).__name__}: {error}), "
+                "so nothing it covers was checked.",
                 "This is a bug in omalint; please report it.",
             )])
     return inv, results
@@ -99,20 +102,26 @@ def _fix(ctx: Context, inv, results, dry_run: bool, color: bool) -> bool:
     name = ctx.display(ctx.shell_json)
     old = fixes.read(ctx.shell_json)
     try:
-        current = json.loads(old)
+        current = json.loads(old.lstrip("﻿"))
     except ValueError:
         current = None
     # The findings describe the file as it was when the checks read it.
     if current != inv.shell_config:
         raise fixes.FixError(f"{name} changed while it was being checked. Nothing was written; run the command again.")
-    new_config, fixed = fixes.plan(inv.shell_config, fixable)
-    new = fixes.render(new_config)
+    try:
+        new_config, fixed = fixes.plan(inv.shell_config, fixable)
+        new = fixes.render(new_config)
+        unchanged = fixes.render(inv.shell_config)
+        new.encode("utf-8")
+    except (ValueError, RecursionError) as error:
+        # An out-of-range number, an unpaired surrogate, nesting too deep to copy.
+        raise fixes.FixError(f"{name} holds a value that cannot be written back faithfully ({error}). It is left alone.")
 
     print(f"Fixing {len(fixed)} problem{'s' if len(fixed) != 1 else ''} in {name}:")
     for finding in fixed:
         print(f"  - {finding.message}")
     print()
-    if fixes.render(inv.shell_config) != old:
+    if unchanged != old:
         print("Note: the file was not in the shell's own formatting, so the diff also shows re-indentation.\n")
     for line in fixes.diff(old, new, name).splitlines():
         tint = {"+": "32", "-": "31", "@": "36"}.get(line[:1]) if color and not line.startswith(("+++", "---")) else None
@@ -134,6 +143,10 @@ def main(argv=None) -> int:
         return 2
     names = [name for name in (args.only or CHECKS) if name not in args.skip]
     color = not args.no_color and sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    # A plugin id or a log line can hold text the terminal's encoding cannot; print it escaped.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     results = {}
     try:
         ctx = context(args)
@@ -161,6 +174,10 @@ def main(argv=None) -> int:
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     except OSError as error:
         print(f"omalint: {error}", file=sys.stderr)
+        return 2
+    except Exception:
+        # Not 1: that would read as "the checks ran and found errors".
+        traceback.print_exc()
         return 2
     totals = report.summary(results)
     return 1 if totals["errors"] or (args.strict and totals["warnings"]) else 0

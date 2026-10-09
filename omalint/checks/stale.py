@@ -137,12 +137,21 @@ def check(ctx: Context, inv: Inventory) -> Result:
                     parts.append(f"{len(modified)} changed ({_some(modified)})")
                 if untracked:
                     parts.append(f"{len(untracked)} untracked ({_some(untracked)})")
+                # `omarchy plugin update` is a fast-forward merge: it only fails when the update
+                # touches the same files, and a local commit would block every later update.
+                if modified:
+                    consequence = "`omarchy plugin update` stops when an update changes a file you have edited."
+                    fix = (f"See your changes with `git -C {where} diff`. To drop them: `git -C {where} restore .`. "
+                           f"To carry them across an update: `git -C {where} stash`, update, "
+                           f"then `git -C {where} stash pop`.")
+                else:
+                    consequence = "`omarchy plugin update` stops if an update adds a file with one of those names."
+                    fix = f"List them with `git -C {where} status`, and delete them if they are leftovers."
                 result.findings.append(Finding(
                     "stale", "stale.local-changes", WARN, plugin.label,
                     f"{plugin.label} differs from the version its author published: {'; '.join(parts)}. "
-                    "`omarchy plugin update` cannot fast-forward over edited files.",
-                    f"Review with `git -C {where} status`. Keep your edits by committing them, "
-                    f"or drop them with `git -C {where} restore .`.",
+                    + consequence,
+                    fix,
                     where,
                 ))
 
@@ -160,11 +169,13 @@ def check(ctx: Context, inv: Inventory) -> Result:
                 where,
             ))
 
+    compared = checkouts - unknown
     result.notes.append(
-        f"{checkouts} git checkout{'s' if checkouts != 1 else ''} compared with their last commit (no network)."
+        f"{compared} git checkout{'s' if compared != 1 else ''} compared with their last commit (no network)."
     )
     if unknown:
         result.notes.append(
-            f"git could not report on {unknown} checkout{'s' if unknown > 1 else ''} (is git installed?)."
+            f"Local edits were not checked for {unknown} checkout{'s' if unknown > 1 else ''}: "
+            "git did not answer (is it installed?)."
         )
     return result

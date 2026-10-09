@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 
-from ..inventory import RESERVED, SECTIONS, Inventory, entry_id
+from ..inventory import RESERVED, SECTIONS, Inventory, entry_id, js_string, js_truthy, shell_id
 from ..model import ERROR, WARN, Context, Finding, Result
 
 TITLE = "Bar layout"
@@ -16,19 +16,20 @@ def custom_type(entry) -> str:
     """Mirrors BarModel.customModuleType: these keys turn an entry into a user module."""
     if not isinstance(entry, dict):
         return ""
-    if entry.get("type"):
-        return str(entry["type"])
-    if entry.get("exec"):
+    kind = shell_id(entry.get("type"))
+    if kind:
+        return kind
+    if js_truthy(entry.get("exec")):
         return "command"
-    if entry.get("source"):
+    if js_truthy(entry.get("source")):
         return "qml"
     return ""
 
 
 def _custom_qml_path(ctx: Context, entry: dict, name: str) -> str:
     source = entry.get("source")
-    if source:
-        source = str(source)
+    if js_truthy(source):
+        source = js_string(source)
         home = os.path.expanduser("~")
         if source.startswith("~/"):
             return home + source[1:]
@@ -95,8 +96,8 @@ def check(ctx: Context, inv: Inventory) -> Result:
 
     bar = config.get("bar") if isinstance(config.get("bar"), dict) else {}
 
-    bar_id = bar.get("id")
-    if isinstance(bar_id, str) and bar_id not in ("", "omarchy.bar"):
+    bar_id = shell_id(bar.get("id"))
+    if bar_id not in ("", "omarchy.bar"):
         plugin = inv.plugin(bar_id)
         if plugin and "bar" in plugin.kinds:
             pass
@@ -212,8 +213,8 @@ def check(ctx: Context, inv: Inventory) -> Result:
     if isinstance(plugins, list):
         for index, entry in enumerate(plugins):
             spot = f"plugins[{index}]"
-            name = entry.get("id") if isinstance(entry, dict) else None
-            if not isinstance(name, str) or not name:
+            name = shell_id(entry.get("id")) if isinstance(entry, dict) else ""
+            if not name:
                 add(
                     "bar.plugin-entry-invalid", WARN, spot,
                     f'{spot} is not an object with an "id", so it enables nothing.',

@@ -20,7 +20,7 @@ run `omalint --fix`, and only after saving a backup and showing you the diff.
 | `bar` | `shell.json` entries that point nowhere: widgets and plugins that are not installed, widgets placed twice that do not support it, widgets in a section other than left/center/right, entries without an id, custom modules whose file is gone, a `shell.json` the shell ignores entirely |
 | `keys` | Keys bound to two actions (in your Hyprland Lua config, against Omarchy's defaults, or by a plugin at run time), keys that open a plugin which is not installed or not enabled, and shortcuts a plugin's README suggests that are already taken |
 | `deps` | Commands a plugin's README lists under Requirements that are not installed |
-| `stale` | Git-installed plugins with local edits (which block `omarchy plugin update`), and plugin code that imports or loads files that no longer exist |
+| `stale` | Git-installed plugins with local edits (which can stop `omarchy plugin update`), and plugin code that imports or loads files that no longer exist |
 | `health` | Whether the shell is running, whether it has picked up every installed plugin, and which plugins have logged errors since it started |
 
 Each finding is an **ERROR** (something is broken), a **WARN** (something is wrong but
@@ -31,8 +31,8 @@ the shell copes), or a note (worth knowing, nothing to do).
 - Omarchy 4 (the Quickshell-based shell)
 - `python3`, which Omarchy ships. OmaLint uses only the standard library and runs `/usr/bin/python3`.
 
-It also uses these when they are present, and skips the related check when they are not;
-all of them are part of an Omarchy install:
+It also uses these when they are present. Without one, the part of the report that needs
+it is skipped and says so. All of them are part of an Omarchy install:
 
 - `git`, optional, only for the local-edits check
 - `journalctl` and `omarchy-shell`, optional, only for the shell health check
@@ -48,7 +48,8 @@ omarchy plugin add https://github.com/DavidGudovic/omalint.git
 ```
 
 Omarchy clones the repository into `~/.config/omarchy/plugins/io.github.davidgudovic.omalint/`
-and leaves it disabled so you can read the code first.
+and asks whether to enable it. Answer no if you would rather read the code first; the
+command below works either way.
 
 To use the command from anywhere, link it into `~/.local/bin` (already on `PATH` in Omarchy):
 
@@ -56,7 +57,7 @@ To use the command from anywhere, link it into `~/.local/bin` (already on `PATH`
 ln -s ~/.config/omarchy/plugins/io.github.davidgudovic.omalint/bin/omalint ~/.local/bin/omalint
 ```
 
-To put the widget on the bar (optional):
+To put the widget on the bar later (optional):
 
 ```bash
 omarchy plugin enable io.github.davidgudovic.omalint
@@ -118,9 +119,9 @@ never edits plugin code, your Hyprland config, or anything under `/usr/share/oma
 ## The bar widget
 
 The widget runs the same checks in the background (ten seconds after the shell starts,
-then every 30 minutes) and shows a stethoscope with the number of errors and warnings.
-With errors it takes the theme's urgent color. With nothing to report it stays off the
-bar, like Omarchy's own update indicator.
+then every 30 minutes) and shows a checklist icon with the number of errors and warnings
+(the icon alone on a vertical bar). With errors it takes the theme's urgent color. With
+nothing to report it stays off the bar, like Omarchy's own update indicator.
 
 - Left click opens the report in a floating terminal.
 - Right click checks again now.
@@ -167,9 +168,9 @@ two `rm` lines cover the only other files OmaLint can have created.
 
 ## How sure is it
 
-The `manifests` and `bar` checks apply the same rules as the shell's plugin registry and
-`omarchy plugin validate`, so they are exact. The others read things that were not
-written for a machine, and say less when they are less sure:
+The `manifests` and `bar` checks follow the rules of the shell's plugin registry and of
+`omarchy plugin validate`, taken from Omarchy's own source. The others read things that
+were not written for a machine, and say less when they are less sure:
 
 - **Keybindings** are found by scanning Lua for `o.bind`, `hl.bind` and `hl.unbind` calls
   with literal keys, following `require` in load order. Bindings built in loops or from
@@ -178,7 +179,8 @@ written for a machine, and say less when they are less sure:
   (`code:38`) are compared with each other but not with their named equivalents.
 - **Dependencies** come from the README, since manifests have no dependency field. Only
   `backticked` names in the lists and tables of a Requirements, Dependencies or
-  Prerequisites section count, and anything described as optional becomes a note.
+  Prerequisites section count, and anything described as optional becomes a note. A
+  backticked word that is not a program can still be mistaken for one.
 - **Missing files** are literal paths in `import "…"`, `Qt.resolvedUrl("…")` and
   `source: "…"`. Paths assembled at run time are not checked.
 - **Log errors** are warnings and errors the shell logged about a plugin since the shell

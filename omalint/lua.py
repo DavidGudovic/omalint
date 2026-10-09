@@ -31,6 +31,9 @@ class Call:
     # True inside a function body: the call runs later, if at all.
     deferred: bool = False
     masked: str = ""  # the argument list with string contents blanked
+    # (if statement number, arm number) for each enclosing `if`: calls in different
+    # arms of one statement can never both run.
+    arms: tuple = ()
 
 
 def mask(source: str) -> str:
@@ -121,12 +124,15 @@ def scan(source: str) -> list:
     """Binding and require calls in source order, each with the blocks around it."""
     masked = mask(source)
     calls = []
-    blocks = []  # [kind, condition] for every open function/if/do/repeat
+    blocks = []  # [kind, condition, number, arm] for every open function/if/do/repeat
+    statements = 0
 
     def context():
+        ifs = [block for block in blocks if block[0] == "if"]
         return (
-            [condition for kind, condition in blocks if kind == "if"],
-            any(kind == "function" for kind, _ in blocks),
+            [block[1] for block in ifs],
+            any(block[0] == "function" for block in blocks),
+            tuple((block[2], block[3]) for block in ifs),
         )
 
     for match in _TOKEN.finditer(masked):
@@ -139,19 +145,22 @@ def scan(source: str) -> list:
             elif word in ("else", "elseif"):
                 if blocks and blocks[-1][0] == "if":
                     blocks[-1][1] = ""
+                    blocks[-1][3] += 1
             elif word == "if":
+                statements += 1
                 then = re.compile(r"\bthen\b").search(masked, match.end())
-                blocks.append(["if", source[match.end():then.start()].strip() if then else ""])
+                condition = source[match.end():then.start()].strip() if then else ""
+                blocks.append(["if", condition, statements, 0])
             else:
-                blocks.append([word, ""])
+                blocks.append([word, "", 0, 0])
             continue
 
-        conditions, deferred = context()
+        conditions, deferred, arms = context()
         if match.group("require"):
             opening = match.end() - 1
             closing = masked.find(match.group("quote"), opening + 1)
             if closing != -1:
-                calls.append(Call("require", [source[opening + 1:closing]], line, conditions, deferred))
+                calls.append(Call("require", [source[opening + 1:closing]], line, conditions, deferred, arms=arms))
             continue
 
         # `function o.bind(...)` defines the helper; it is not a call to it.
@@ -168,5 +177,6 @@ def scan(source: str) -> list:
             conditions,
             deferred,
             masked[opening + 1:closing],
+            arms,
         ))
     return calls

@@ -1,6 +1,8 @@
 import unittest
 
-from helpers import Helpers, context, find, pairs, run_check, temp_context, write_shell_json
+from helpers import Helpers, context, find, pairs, run_check, temp_context, write_plugin, write_shell_json
+
+from omalint import inventory
 
 BROKEN = {
     ("bar.unknown-bar", "acme.neon-bar"): "warn",
@@ -146,6 +148,57 @@ class WithoutBuiltinPluginsTests(Helpers, unittest.TestCase):
 
     def test_a_note_says_builtins_were_not_verified(self):
         self.assertTrue(any("Built-in plugins not found" in note for note in self.result.notes))
+
+
+class JavaScriptCoercionTests(unittest.TestCase):
+    def test_string_of_a_json_value_matches_javascript(self):
+        cases = [("a", "a"), (5, "5"), (5.0, "5"), (1.5, "1.5"), (True, "true"), (None, "null"),
+                 (["a", None, 2], "a,,2"), ([], ""), ({}, "[object Object]")]
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(inventory.js_string(value), expected)
+
+    def test_falsy_values_are_no_id(self):
+        for value in (None, False, 0, ""):
+            with self.subTest(value=value):
+                self.assertEqual(inventory.shell_id(value), "")
+
+    def test_arrays_and_objects_are_truthy_as_in_javascript(self):
+        self.assertTrue(inventory.js_truthy([]))
+        self.assertTrue(inventory.js_truthy({}))
+        self.assertEqual(inventory.shell_id(["acme.x"]), "acme.x")
+
+
+class ShellIdTests(Helpers, unittest.TestCase):
+    """The shell never checks an id's type, so neither may the report or --fix."""
+
+    def setUp(self):
+        self.ctx = temp_context(self.tempdir())
+        write_plugin(self.ctx.config_dir, "acme.good")
+
+    def check(self, **config):
+        write_shell_json(self.ctx.config_dir, dict(config, version=1))
+        return run_check("bar", self.ctx)
+
+    def test_array_valued_id_names_the_widget_it_spells(self):
+        entries = [{"id": ["acme.good"]}, {"id": ["omarchy.clock"], "format": "HH:mm"}]
+        self.assertFindings(self.check(bar={"layout": {"right": entries}}), {})
+
+    def test_object_valued_id_is_a_dead_entry(self):
+        result = self.check(bar={"layout": {"right": [{"id": {}}]}})
+        self.assertEqual(pairs(result), {("bar.unknown-widget", "[object Object]")})
+
+    def test_array_valued_ids_work_for_plugins_and_the_bar_option(self):
+        result = self.check(bar={"id": ["omarchy.bar"]}, plugins=[{"id": ["acme.good"]}])
+        self.assertFindings(result, {})
+
+    def test_truthy_non_string_type_makes_a_custom_module(self):
+        result = self.check(bar={"layout": {"left": [{"id": "acme.good", "type": {}}]}})
+        self.assertEqual(pairs(result), {("bar.unknown-module-type", "acme.good")})
+
+    def test_entry_whose_exec_is_truthy_is_never_called_dead(self):
+        result = self.check(bar={"layout": {"left": [{"exec": ["date"]}]}})
+        self.assertFindings(result, {})
 
 
 if __name__ == "__main__":

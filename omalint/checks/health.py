@@ -79,11 +79,8 @@ def check(ctx: Context, inv: Inventory) -> Result:
 
     ping = ctx.run(["omarchy-shell", "shell", "ping"], timeout=8, env=env)
     if ping.status == "missing":
-        result.findings.append(Finding(
-            "health", "health.no-omarchy-shell", WARN, "omarchy-shell",
-            "The `omarchy-shell` command was not found, so the shell cannot be reached.",
-            "Run this on an Omarchy 4 system, with Omarchy's bin directory on PATH.",
-        ))
+        result.skipped = True
+        result.notes.append("Not checked: the `omarchy-shell` command is not on PATH, so the shell cannot be asked.")
         return result
     if "not ready" in ping.err:
         # A shell that is still loading answers like this for a moment; that is not a fault.

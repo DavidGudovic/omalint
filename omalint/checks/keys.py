@@ -63,9 +63,16 @@ class Bind:
     file: Path
     line: int
     stock: bool  # comes from Omarchy's defaults rather than the user's config
+    description: str = ""  # as given in the config; Hyprland reports the same text
+    arms: tuple = ()  # (file, if statement, arm) for each `if` around the call
 
     def where(self, ctx: Context) -> str:
         return f"{ctx.display(self.file)}:{self.line}"
+
+    def excludes(self, other: "Bind") -> bool:
+        """True when the two sit in different arms of one `if`, so at most one of them runs."""
+        mine = {arm[:2]: arm[2] for arm in self.arms}
+        return any(arm[:2] in mine and mine[arm[:2]] != arm[2] for arm in other.arms)
 
 
 def plugin_reference(command: str) -> str:
@@ -165,7 +172,10 @@ class _Loader:
         elif executed:
             command = lua.string_value(executed.group(1)) or ""
         release = bool(re.search(r"\brelease\s*=\s*true\b", call.masked))
-        return Bind(combo, release, description or _shorten(command or action), command, path, call.line, stock)
+        return Bind(
+            combo, release, description or _shorten(command or action), command, path, call.line, stock,
+            description or "", tuple((str(path), number, arm) for number, arm in call.arms),
+        )
 
 
 def collect(ctx: Context):
@@ -219,7 +229,10 @@ def conflicts(ctx: Context, binds: list, live) -> tuple:
     """
     groups = defaultdict(list)
     for bind in binds:
-        groups[(bind.combo, bind.release)].append(bind)
+        group = groups[(bind.combo, bind.release)]
+        # Bindings in different arms of one `if` are alternatives, not a double binding.
+        if not any(bind.excludes(other) for other in group):
+            group.append(bind)
     running = {}
     for (mask, key, release), descriptions in (live or {}).items():
         combo = " + ".join([m for m in MOD_ORDER if mask & MOD_BITS[m]] + [key])
@@ -238,11 +251,18 @@ def conflicts(ctx: Context, binds: list, live) -> tuple:
                 continue
             if len(descriptions) == len(group) and all(b.stock for b in group):
                 continue
-            unmatched = list(group)
+            unmatched, unexplained = list(group), []
             for description in descriptions:
-                match = next((b for b in unmatched if b.label == description), None)
+                match = next((b for b in unmatched if b.description == description), None)
                 if match:
                     unmatched.remove(match)
+                    entries.append(f'"{match.label}" ({match.where(ctx)})')
+                else:
+                    unexplained.append(description)
+            for description in unexplained:
+                if unmatched:
+                    # A config binding nobody has claimed explains it better than an unseen plugin.
+                    match = unmatched.pop(0)
                     entries.append(f'"{match.label}" ({match.where(ctx)})')
                 else:
                     runtime = True

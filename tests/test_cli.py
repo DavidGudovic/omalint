@@ -5,7 +5,12 @@ import subprocess
 import sys
 import unittest
 
-from helpers import CLI, FIXTURES, ROOT, Helpers, cli, directory_args, fixture_args, snapshot
+from helpers import (
+    CLI, FIXTURES, ROOT, Helpers, cli, context, directory_args, fixture_args, good_manifest, snapshot, write_plugin,
+)
+
+from omalint import cli as command_line
+from omalint.checks import bar
 
 try:
     import pty
@@ -141,6 +146,32 @@ class HelpTests(unittest.TestCase):
         for name in CHECK_IDS:
             with self.subTest(name=name):
                 self.assertIn(name, result.stdout)
+
+
+    def test_help_names_the_backup_file_fix_really_writes(self):
+        self.assertIn("shell.json.bak.omalint.<timestamp>", cli("--help").stdout)
+
+
+class RobustnessTests(Helpers, unittest.TestCase):
+    def test_crashed_check_is_an_error_and_the_others_still_run(self):
+        original = bar.check
+        self.addCleanup(setattr, bar, "check", original)
+        bar.check = lambda ctx, inv: 1 / 0
+        _, results = command_line.run_checks(context("healthy"), ["bar", "manifests"])
+        self.assertFindings(results["bar"], {("omalint.check-crashed", "bar"): "error"})
+        self.assertFindings(results["manifests"], {})
+
+    def test_text_the_terminal_cannot_encode_is_printed_escaped(self):
+        root = self.tempdir()
+        escape = chr(92) + "ud800"
+        manifest = json.dumps(good_manifest("PLACEHOLDER")).replace("PLACEHOLDER", "acme" + escape + "x")
+        write_plugin(root / "omarchy", "acme.x", manifest)
+        for mode in ("--no-color", "--json"):
+            with self.subTest(mode=mode):
+                result = cli(mode, *directory_args(root / "omarchy", root / "hypr"))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertIn(escape, result.stdout)
 
 
 class ColorTests(unittest.TestCase):

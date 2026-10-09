@@ -46,11 +46,45 @@ def load_json(path: Path):
     except OSError as error:
         return None, f"it cannot be read: {error.strerror}"
     try:
-        return json.loads(text, parse_constant=_reject_constant), ""
+        # A leading byte-order mark never reaches the shell's parser either.
+        return json.loads(text.lstrip("﻿"), parse_constant=_reject_constant), ""
     except json.JSONDecodeError as error:
         return None, f"line {error.lineno}, column {error.colno}: {error.msg}"
     except (ValueError, RecursionError) as error:
         return None, str(error) or "it is nested too deeply"
+
+
+def js_truthy(value) -> bool:
+    """JavaScript truthiness of a parsed JSON value: unlike Python, [] and {} count as true."""
+    if value is None or isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float, str)):
+        return bool(value)
+    return True
+
+
+def js_string(value) -> str:
+    """What JavaScript's String(value) gives for a parsed JSON value."""
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(int(value)) if float(value).is_integer() else repr(value)
+    if isinstance(value, list):
+        return ",".join("" if item is None else js_string(item) for item in value)
+    return "[object Object]"
+
+
+def shell_id(value) -> str:
+    """An id the way the shell reads one from shell.json: String(value || "").
+
+    The shell never checks the type, so {"id": ["acme.clock"]} names acme.clock.
+    Reading ids any other way would call a working entry dead.
+    """
+    return js_string(value) if js_truthy(value) else ""
 
 
 @dataclass
@@ -67,8 +101,8 @@ class Plugin:
 
     @property
     def id(self) -> str:
-        value = self.manifest.get("id") if self.manifest else None
-        return value if isinstance(value, str) else ""
+        """The id the shell registers the plugin under: String(manifest.id)."""
+        return js_string(self.manifest["id"]) if self.manifest and "id" in self.manifest else ""
 
     @property
     def label(self) -> str:
@@ -161,8 +195,8 @@ def _validate(plugin: Plugin) -> None:
         )
 
     if "id" in manifest:
-        raw = manifest["id"]
-        if not isinstance(raw, str) or raw == "" or "/" in raw or ".." in raw:
+        raw, name = manifest["id"], plugin.id
+        if name == "" or "/" in name or ".." in name:
             problem(
                 "manifest.invalid-id", ERROR,
                 f"The plugin id {json.dumps(raw)} is not usable: it must be a non-empty name "
@@ -170,30 +204,37 @@ def _validate(plugin: Plugin) -> None:
                 'Use an id such as "yourname.plugin-name".',
                 rejects=True,
             )
-        elif raw.startswith(RESERVED):
+        elif name.startswith(RESERVED):
             problem(
                 "manifest.reserved-id", ERROR,
-                f'The id "{raw}" is in the omarchy.* namespace, which is reserved for built-in '
+                f'The id "{name}" is in the omarchy.* namespace, which is reserved for built-in '
                 "plugins. The shell refuses to load it.",
                 "Change the id to your own namespace. To customize a built-in plugin, use "
                 "`omarchy plugin clone <id>` instead.",
                 rejects=True,
             )
         else:
-            if not ID_PATTERN.match(raw):
+            if not isinstance(raw, str):
                 problem(
                     "manifest.invalid-id", WARN,
-                    f'The plugin id "{raw}" contains unusual characters. The shell loads it, '
+                    f'The plugin id is {json.dumps(raw)} rather than a string. The shell reads it as "{name}" '
+                    "and loads the plugin, but other tools expect a string.",
+                    "Ask the plugin author to write the id as a string.",
+                )
+            elif not ID_PATTERN.match(name):
+                problem(
+                    "manifest.invalid-id", WARN,
+                    f'The plugin id "{name}" contains unusual characters. The shell loads it, '
                     "but `omarchy plugin` commands refuse ids outside letters, digits, '.', '_' and '-'.",
                     "Ask the plugin author to rename it.",
                 )
-            if raw != plugin.dir.name:
+            if name != plugin.dir.name:
                 problem(
                     "manifest.folder-mismatch", WARN,
-                    f'The folder is named "{plugin.dir.name}" but the manifest id is "{raw}". '
+                    f'The folder is named "{plugin.dir.name}" but the manifest id is "{name}". '
                     "`omarchy plugin update` and `omarchy plugin remove` look for a folder named "
                     "after the id and will not find this one.",
-                    f'Rename the folder to "{raw}".',
+                    f'Rename the folder to "{name}".',
                 )
 
     kinds = manifest.get("kinds")
@@ -308,17 +349,10 @@ def _first_party(omarchy_path: Path) -> dict:
 
 
 def entry_id(entry) -> str:
-    """Id of a bar.layout entry as the shell reads it (String(entry.id)), or "" when it has none."""
+    """Id of a bar.layout entry as Util.normalizeLayoutEntry reads it, or "" when it has none."""
     if isinstance(entry, str):
         return entry
-    value = entry.get("id") if isinstance(entry, dict) else None
-    if isinstance(value, str):
-        return value
-    if value is True:
-        return "true"
-    if isinstance(value, (int, float)) and not isinstance(value, bool) and value:
-        return str(int(value)) if float(value).is_integer() else repr(value)
-    return ""
+    return shell_id(entry.get("id")) if isinstance(entry, dict) else ""
 
 
 @dataclass
@@ -358,7 +392,7 @@ class Inventory:
         if config is None:
             return None
         bar = config.get("bar") if isinstance(config.get("bar"), dict) else {}
-        if bar.get("id") == plugin_id:
+        if shell_id(bar.get("id")) == plugin_id:
             return True
         layout = bar.get("layout") if isinstance(bar.get("layout"), dict) else {}
         for section in SECTIONS:
@@ -367,7 +401,7 @@ class Inventory:
                 return True
         plugins = config.get("plugins")
         if isinstance(plugins, list):
-            return any(isinstance(e, dict) and e.get("id") == plugin_id for e in plugins)
+            return any(isinstance(e, dict) and shell_id(e.get("id")) == plugin_id for e in plugins)
         return False
 
 

@@ -86,16 +86,25 @@ BarWidget {
     onTriggered: root.refresh()
   }
 
+  // Room for the count, measured in the bar's font rather than guessed.
+  TextMetrics {
+    id: countMetrics
+    font.family: button.fontFamily
+    font.pixelSize: button.fontSize
+    text: button.count + " "
+  }
+
   BarIconButton {
     id: button
 
+    readonly property string glyph: "\uf0ae"
     readonly property string count: root.problems > 99 ? "99+" : String(root.problems)
     readonly property bool counted: root.problems > 0 && !vertical
 
     anchors.fill: parent
     bar: root.bar
-    text: counted ? count + " " : ""
-    slotSize: Style.bar.iconSlot + (counted ? Math.round(Style.bar.iconFont * 0.62 * (count.length + 1)) : 0)
+    text: counted ? count + " " + glyph : glyph
+    slotSize: Style.bar.iconSlot + (counted ? Math.ceil(countMetrics.advanceWidth) : 0)
     active: root.errors > 0
     dimmed: root.failure !== ""
     tooltipText: root.summary

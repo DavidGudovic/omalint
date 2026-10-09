@@ -49,8 +49,11 @@ def plan(config: dict, findings) -> tuple:
 
 
 def render(config: dict) -> str:
-    """Serialize the way the shell does (JSON.stringify(config, null, 2) plus a newline)."""
-    return json.dumps(config, indent=2, ensure_ascii=False) + "\n"
+    """Serialize the way the shell does (JSON.stringify(config, null, 2) plus a newline).
+
+    Raises ValueError for a number JSON cannot hold (1e400 parses to infinity).
+    """
+    return json.dumps(config, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
 
 def diff(old: str, new: str, name: str) -> str:
@@ -79,11 +82,12 @@ def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
         raise FixError(f"{target} changed while it was being checked. Nothing was written; run the command again.")
 
     # Named after the tool, so its backups can be told from anyone else's and removed with it.
-    stamp = f"{real.name}.bak.omalint.{int(time.time())}"
-    backup = real.with_name(stamp)
+    # It goes beside the path the user knows, even when that is a symlink into a dotfiles folder.
+    stamp = f"{target.name}.bak.omalint.{int(time.time())}"
+    backup = target.with_name(stamp)
     suffix = 1
     while backup.exists():
-        backup = real.with_name(f"{stamp}.{suffix}")
+        backup = target.with_name(f"{stamp}.{suffix}")
         suffix += 1
     shutil.copy2(real, backup)
 

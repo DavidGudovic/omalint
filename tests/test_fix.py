@@ -75,6 +75,10 @@ class RenderTests(unittest.TestCase):
         self.assertIn("—", text)
         self.assertNotIn("\\u2014", text)
 
+    def test_refuses_a_number_json_cannot_hold(self):
+        with self.assertRaises(ValueError):
+            fixes.render({"lock": float("inf")})
+
 
 class ApplyTests(Helpers, unittest.TestCase):
     def setUp(self):
@@ -135,6 +139,18 @@ class ApplyTests(Helpers, unittest.TestCase):
         self.assertTrue(self.target.is_symlink())
         self.assertEqual(real.read_text(encoding="utf-8"), "new\n")
         self.assertEqual(backup.parent, real.parent)
+
+    def test_backup_stays_beside_the_link_when_the_file_lives_elsewhere(self):
+        dotfiles = self.ctx.config_dir.parent / "dotfiles"
+        dotfiles.mkdir()
+        real = dotfiles / "shell.json"
+        self.target.rename(real)
+        os.symlink(real, self.target)
+        backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(backup.parent, self.ctx.config_dir)
+        self.assertEqual(backup.read_text(encoding="utf-8"), "old\n")
+        self.assertEqual(os.listdir(dotfiles), ["shell.json"])
+        self.assertEqual(real.read_text(encoding="utf-8"), "new\n")
 
     def test_refuses_a_file_that_is_not_utf8(self):
         self.target.write_bytes(b'{"a": "\xff"}\n')
@@ -271,6 +287,40 @@ class SecondFixTests(CliFixTestCase):
 
     def test_leaves_shell_json_unchanged(self):
         self.assertEqual(self.shell_json.read_bytes(), self.fixed)
+
+
+class UnwritableValueTests(CliFixTestCase):
+    """Values that parse but cannot be written back unchanged stop --fix cleanly."""
+
+    def replace(self, old, new):
+        text = self.shell_json.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        self.shell_json.write_text(text.replace(old, new), encoding="utf-8")
+        return self.shell_json.read_bytes()
+
+    def assertRefused(self, before):
+        result = cli("--fix", "--no-color", *self.args)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn("left alone", result.stderr)
+        self.assertEqual(self.shell_json.read_bytes(), before)
+        self.assertEqual(self.backups(), [])
+
+    def test_number_too_large_for_json_is_refused(self):
+        self.assertRefused(self.replace('"lock": 300', '"lock": 1e400'))
+
+    def test_unpaired_surrogate_is_refused(self):
+        escape = chr(92) + "ud800"
+        self.assertRefused(self.replace('"position": "top"', '"position": "' + escape + '"'))
+
+    def test_byte_order_mark_does_not_block_the_fix(self):
+        self.shell_json.write_bytes(b"\xef\xbb\xbf" + ORIGINAL)
+        result = cli("--fix", "--no-color", *self.args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Backup saved", result.stdout)
+        self.assertNotIn("acme.gone", self.shell_json.read_text(encoding="utf-8"))
+        (backup,) = self.backups()
+        self.assertEqual((self.config_dir / backup).read_bytes(), b"\xef\xbb\xbf" + ORIGINAL)
 
 
 class UsageTests(CliFixTestCase):
