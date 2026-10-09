@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import json
 import os
@@ -5,6 +6,7 @@ import re
 import shutil
 import stat
 import unittest
+from unittest import mock
 
 from helpers import FIXTURES, Helpers, cli, directory_args, snapshot, temp_context
 
@@ -151,6 +153,74 @@ class ApplyTests(Helpers, unittest.TestCase):
         self.assertEqual(backup.read_text(encoding="utf-8"), "old\n")
         self.assertEqual(os.listdir(dotfiles), ["shell.json"])
         self.assertEqual(real.read_text(encoding="utf-8"), "new\n")
+
+    def umask(self, value):
+        previous = os.umask(value)
+        self.addCleanup(os.umask, previous)
+
+    def mode(self, path):
+        return stat.S_IMODE(path.stat().st_mode)
+
+    def test_the_backup_of_a_private_file_is_private(self):
+        self.umask(0o022)
+        self.target.chmod(0o600)
+        backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(self.mode(backup), 0o600)
+
+    def test_the_backup_of_a_world_readable_file_is_still_private(self):
+        self.umask(0o022)
+        self.target.chmod(0o644)
+        backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(self.mode(backup), 0o600)
+        self.assertEqual(self.mode(self.target), 0o644)
+
+    def test_the_backup_is_private_from_the_moment_it_is_created(self):
+        self.umask(0o022)
+        self.target.chmod(0o600)
+        # With every later permission change switched off, a file can only end up private
+        # if it was created private.
+        with contextlib.ExitStack() as stack:
+            for name in ("shutil.copystat", "shutil.copymode", "os.chmod", "os.fchmod"):
+                stack.enter_context(mock.patch(name))
+            backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(self.mode(backup), 0o600)
+        self.assertEqual(self.mode(self.target), 0o600)
+
+    def test_a_dangling_symlink_at_the_backup_name_is_not_followed(self):
+        stamp = 1_700_000_000
+        outside = self.ctx.config_dir.parent / "outside"
+        link = self.ctx.config_dir / f"shell.json.bak.omalint.{stamp}"
+        os.symlink(outside, link)
+        with mock.patch.object(fixes.time, "time", return_value=stamp):
+            backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertFalse(os.path.lexists(outside))
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(backup.name, link.name + ".1")
+        self.assertEqual(backup.read_text(encoding="utf-8"), "old\n")
+
+    def test_a_backup_from_the_same_second_is_kept_and_the_new_one_gets_a_suffix(self):
+        stamp = 1_700_000_000
+        earlier = self.ctx.config_dir / f"shell.json.bak.omalint.{stamp}"
+        earlier.write_text("earlier\n", encoding="utf-8")
+        with mock.patch.object(fixes.time, "time", return_value=stamp):
+            backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(earlier.read_text(encoding="utf-8"), "earlier\n")
+        self.assertEqual(backup.name, earlier.name + ".1")
+        self.assertEqual(backup.read_text(encoding="utf-8"), "old\n")
+
+    def test_a_failed_write_leaves_no_backup(self):
+        with mock.patch("os.replace", side_effect=OSError("no space")):
+            with self.assertRaises(OSError):
+                fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(self.names(), ["shell.json"])
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "old\n")
+
+    def test_a_failed_backup_write_leaves_nothing_behind(self):
+        with mock.patch("os.fsync", side_effect=OSError("no space")):
+            with self.assertRaises(OSError):
+                fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertEqual(self.names(), ["shell.json"])
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "old\n")
 
     def test_refuses_a_file_that_is_not_utf8(self):
         self.target.write_bytes(b'{"a": "\xff"}\n')

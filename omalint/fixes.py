@@ -72,6 +72,50 @@ def read(path: Path) -> str:
         raise FixError(f"{path} is not valid UTF-8 text, so it is left alone. Fix its encoding by hand first.")
 
 
+def _save_backup(target: Path, text: str) -> Path:
+    """Write text to a new backup file beside target and return its path."""
+    # Named after the tool, so its backups can be told from anyone else's and removed with it.
+    # It goes beside the path the user knows, even when that is a symlink into a dotfiles folder.
+    stamp = f"{target.name}.bak.omalint.{int(time.time())}"
+    backup = target.with_name(stamp)
+    suffix = 1
+    while True:
+        try:
+            # Owner-only from the moment it exists, whatever the umask: a file that is created first and
+            # restricted afterwards can be read by others in between. O_EXCL takes the name only if it is
+            # free, and does not follow a symlink left there.
+            handle = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            break
+        except FileExistsError:
+            backup = target.with_name(f"{stamp}.{suffix}")
+            suffix += 1
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except OSError:
+        os.unlink(backup)
+        raise
+    return backup
+
+
+def _replace(real: Path, text: str) -> None:
+    """Swap in a new file with this text, so a reader never sees half of it."""
+    handle, temporary = tempfile.mkstemp(prefix=".omalint-", dir=real.parent)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # mkstemp made the file owner-only; it takes the original's mode only now that the content is in.
+        shutil.copymode(real, temporary)
+        os.replace(temporary, real)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
     """Back up target, then replace its content. Returns the backup path."""
     real = Path(os.path.realpath(target))
@@ -81,25 +125,11 @@ def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
     if read(real) != old:
         raise FixError(f"{target} changed while it was being checked. Nothing was written; run the command again.")
 
-    # Named after the tool, so its backups can be told from anyone else's and removed with it.
-    # It goes beside the path the user knows, even when that is a symlink into a dotfiles folder.
-    stamp = f"{target.name}.bak.omalint.{int(time.time())}"
-    backup = target.with_name(stamp)
-    suffix = 1
-    while backup.exists():
-        backup = target.with_name(f"{stamp}.{suffix}")
-        suffix += 1
-    shutil.copy2(real, backup)
-
-    handle, temporary = tempfile.mkstemp(prefix=".omalint-", dir=real.parent)
+    backup = _save_backup(target, old)
     try:
-        with os.fdopen(handle, "w", encoding="utf-8", newline="") as stream:
-            stream.write(new)
-            stream.flush()
-            os.fsync(stream.fileno())
-        shutil.copymode(real, temporary)
-        os.replace(temporary, real)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+        _replace(real, new)
+    except OSError:
+        # Nothing was replaced, so there is nothing to undo and no reason to leave a copy behind.
+        os.unlink(backup)
+        raise
     return backup
