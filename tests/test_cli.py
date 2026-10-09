@@ -78,7 +78,7 @@ class JsonReportTests(unittest.TestCase):
     def test_summary_counts(self):
         self.assertEqual(
             self.report["summary"],
-            {"errors": 7, "warnings": 21, "notes": 2, "fixable": 2, "plugins": 13},
+            {"errors": 7, "warnings": 21, "notes": 2, "fixable": 1, "plugins": 13},
         )
 
     def test_checks_come_in_the_documented_order(self):

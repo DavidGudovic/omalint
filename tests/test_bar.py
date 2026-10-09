@@ -20,7 +20,6 @@ FIXABLE = {
     ("bar.unknown-bar", "acme.neon-bar"): "warn",
     ("bar.unknown-widget", "acme.gone"): "warn",
     ("bar.entry-without-id", "bar.layout.center[1]"): "warn",
-    ("bar.duplicate-widget", "omarchy.tray"): "warn",
     ("bar.unknown-plugin", "acme.vanished"): "warn",
 }
 
@@ -32,21 +31,19 @@ class BrokenFixtureTests(Helpers, unittest.TestCase):
     def test_reports_exactly_the_expected_findings(self):
         self.assertFindings(self.result, BROKEN)
 
-    def test_only_two_findings_are_fixable(self):
+    def test_only_the_entry_without_an_id_is_fixable(self):
         fixable = {(f.code, f.subject) for f in self.result.findings if f.fixable}
-        self.assertEqual(fixable, {
-            ("bar.entry-without-id", "bar.layout.center[2]"),
-            ("bar.duplicate-widget", "omarchy.tray"),
-        })
+        self.assertEqual(fixable, {("bar.entry-without-id", "bar.layout.center[2]")})
 
     def test_unknown_widget_is_not_fixable_while_a_manifest_is_unreadable(self):
         finding = find(self.result, "bar.unknown-widget", "acme.gone")
         self.assertFalse(finding.fixable)
         self.assertIn("acme.badjson", finding.fix)
 
-    def test_duplicate_tray_fix_removes_the_later_placement(self):
+    def test_duplicate_tray_is_reported_but_left_for_the_user_to_resolve(self):
         finding = find(self.result, "bar.duplicate-widget", "omarchy.tray")
-        self.assertEqual(finding.action, {"op": "remove-layout", "spots": [["right", 0]]})
+        self.assertFalse(finding.fixable)
+        self.assertIn("center[1], right[0]", finding.message)
 
     def test_widgets_that_allow_multiple_instances_are_not_duplicates(self):
         subjects = {f.subject for f in self.result.findings if f.code == "bar.duplicate-widget"}
@@ -103,6 +100,20 @@ class TempConfigTests(Helpers, unittest.TestCase):
     def test_command_module_without_an_id_still_draws_and_is_left_alone(self):
         result = self.layout(left=[{"type": "command", "exec": "date"}, {"exec": "date"}])
         self.assertFindings(result, {})
+
+    def test_unknown_id_in_the_reserved_namespace_is_never_fixable(self):
+        write_shell_json(self.ctx.config_dir, {
+            "version": 1,
+            "bar": {"id": "omarchy.future-bar", "layout": {"left": [{"id": "omarchy.future-widget"}]}},
+            "plugins": [{"id": "omarchy.future-service"}],
+        })
+        result = run_check("bar", self.ctx)
+        self.assertEqual(pairs(result), {
+            ("bar.unknown-bar", "omarchy.future-bar"),
+            ("bar.unknown-widget", "omarchy.future-widget"),
+            ("bar.unknown-plugin", "omarchy.future-service"),
+        })
+        self.assertFalse(any(f.fixable for f in result.findings))
 
     def test_numeric_id_is_read_the_way_the_shell_reads_it(self):
         result = self.layout(left=[{"id": 5}])

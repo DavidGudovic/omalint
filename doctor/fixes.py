@@ -60,13 +60,22 @@ def diff(old: str, new: str, name: str) -> str:
     return "".join(line if line.endswith("\n") else line + "\n" for line in lines)
 
 
+def read(path: Path) -> str:
+    """The file's exact text, line endings included. Refuses what could not be written back faithfully."""
+    try:
+        with open(path, encoding="utf-8", newline="") as stream:
+            return stream.read()
+    except UnicodeDecodeError:
+        raise FixError(f"{path} is not valid UTF-8 text, so it is left alone. Fix its encoding by hand first.")
+
+
 def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
     """Back up target, then replace its content. Returns the backup path."""
     real = Path(os.path.realpath(target))
     for stock in {os.path.realpath(ctx.omarchy_path), "/usr/share/omarchy"}:
         if str(real) == stock or str(real).startswith(stock + os.sep):
             raise FixError(f"{real} belongs to Omarchy itself; refusing to edit it.")
-    if real.read_text(encoding="utf-8") != old:
+    if read(real) != old:
         raise FixError(f"{target} changed while it was being checked. Nothing was written; run the command again.")
 
     # Named after the tool, so its backups can be told from anyone else's and removed with it.
@@ -80,7 +89,7 @@ def apply(ctx: Context, target: Path, old: str, new: str) -> Path:
 
     handle, temporary = tempfile.mkstemp(prefix=".omadoctor-", dir=real.parent)
     try:
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="") as stream:
             stream.write(new)
             stream.flush()
             os.fsync(stream.fileno())

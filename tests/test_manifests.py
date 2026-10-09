@@ -122,6 +122,18 @@ class ManifestRuleTests(Helpers, unittest.TestCase):
         self.assertFindings(result, {("manifest.not-object", "acme.x"): "error"})
         self.assertFalse(self.loadable())
 
+    def test_stray_byte_inside_a_string_loads_as_it_does_in_the_shell(self):
+        directory = write_plugin(self.ctx.config_dir, "acme.x")
+        raw = (directory / "manifest.json").read_bytes().replace(b'"Test plugin"', b'"Caf\xe9"')
+        (directory / "manifest.json").write_bytes(raw)
+        self.assertFindings(run_check("manifests", self.ctx), {})
+        self.assertTrue(self.loadable())
+
+    def test_file_that_is_not_text_at_all_is_invalid_json(self):
+        directory = write_plugin(self.ctx.config_dir, "acme.x")
+        (directory / "manifest.json").write_bytes(b"\xff\xfe\x00{")
+        self.assertFindings(run_check("manifests", self.ctx), {("manifest.invalid-json", "acme.x"): "error"})
+
     def test_hidden_folders_and_plain_files_are_ignored(self):
         write_plugin(self.ctx.config_dir, "acme.x")
         plugins = self.ctx.plugins_dir

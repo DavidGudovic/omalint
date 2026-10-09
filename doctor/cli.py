@@ -97,7 +97,14 @@ def _fix(ctx: Context, inv, results, dry_run: bool, color: bool) -> bool:
         return False
 
     name = ctx.display(ctx.shell_json)
-    old = ctx.shell_json.read_text(encoding="utf-8")
+    old = fixes.read(ctx.shell_json)
+    try:
+        current = json.loads(old)
+    except ValueError:
+        current = None
+    # The findings describe the file as it was when the checks read it.
+    if current != inv.shell_config:
+        raise fixes.FixError(f"{name} changed while it was being checked. Nothing was written; run the command again.")
     new_config, fixed = fixes.plan(inv.shell_config, fixable)
     new = fixes.render(new_config)
 

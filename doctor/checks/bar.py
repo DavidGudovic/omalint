@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 
-from ..inventory import SECTIONS, Inventory, entry_id
+from ..inventory import RESERVED, SECTIONS, Inventory, entry_id
 from ..model import ERROR, WARN, Context, Finding, Result
 
 TITLE = "Bar layout"
@@ -81,6 +81,12 @@ def check(ctx: Context, inv: Inventory) -> Result:
         if broken:
             return (f"is installed in {broken.dir.name}, but its manifest does not load",
                     "Fix or reinstall the plugin (see Plugin manifests).", False)
+        if plugin_id.startswith(RESERVED):
+            # Never removed automatically: a built-in this version of OmaDoctor cannot find
+            # (moved by an Omarchy update, say) must not cost the user a working widget.
+            return ("is not a built-in of this Omarchy version",
+                    "Check the id against `omarchy plugin list`, and remove the entry by hand if it is a leftover.",
+                    False)
         if inv.unidentified:
             # One of those folders might be this plugin, so removing the entry is not safe.
             return (NOT_FOUND, "Reinstall the plugin, or remove the entry by hand. (Not fixed "
@@ -198,8 +204,8 @@ def check(ctx: Context, inv: Inventory) -> Result:
             f"{name} is placed {len(spots)} times ({listed}) but does not support multiple instances. "
             "The copies fight over one IPC target and one settings entry, and `omarchy bar` commands "
             "only reach the first.",
-            "Keep one placement and remove the others.",
-            {"op": "remove-layout", "spots": [list(spot) for spot in spots[1:]]},
+            # Not fixed automatically: the bar draws every copy, so which one goes is the user's call.
+            f"Decide which one to keep and delete the other {name} entries from shell.json.",
         )
 
     plugins = config.get("plugins")

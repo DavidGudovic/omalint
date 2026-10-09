@@ -36,11 +36,13 @@ def _reject_constant(name):
 
 
 def load_json(path: Path):
-    """Parse a file as strictly as the shell's JSON.parse. Returns (value, error)."""
+    """Parse a file the way the shell does. Returns (value, error).
+
+    The shell decodes leniently (a stray byte becomes U+FFFD) and then parses
+    strictly with JSON.parse, so a file is only invalid here when it is there.
+    """
     try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return None, "the file is not UTF-8 text"
+        text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as error:
         return None, f"it cannot be read: {error.strerror}"
     try:

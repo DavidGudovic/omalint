@@ -8,6 +8,7 @@ import unittest
 
 from helpers import FIXTURES, Helpers, cli, directory_args, snapshot, temp_context
 
+from doctor import cli as command_line
 from doctor import fixes
 from doctor.model import Finding
 
@@ -126,6 +127,39 @@ class ApplyTests(Helpers, unittest.TestCase):
         backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
         self.assertEqual(self.names(), sorted(["shell.json", backup.name]))
 
+    def test_writes_through_a_symlink_and_keeps_the_link(self):
+        real = self.ctx.config_dir / "dotfiles-shell.json"
+        self.target.rename(real)
+        os.symlink(real, self.target)
+        backup = fixes.apply(self.ctx, self.target, "old\n", "new\n")
+        self.assertTrue(self.target.is_symlink())
+        self.assertEqual(real.read_text(encoding="utf-8"), "new\n")
+        self.assertEqual(backup.parent, real.parent)
+
+    def test_refuses_a_file_that_is_not_utf8(self):
+        self.target.write_bytes(b'{"a": "\xff"}\n')
+        with self.assertRaises(fixes.FixError):
+            fixes.read(self.target)
+
+    def test_read_keeps_windows_line_endings_as_they_are(self):
+        self.target.write_bytes(b"a\r\nb\r\n")
+        self.assertEqual(fixes.read(self.target), "a\r\nb\r\n")
+
+
+class StaleFindingsTests(Helpers, unittest.TestCase):
+    def test_fix_refuses_when_the_file_no_longer_matches_what_was_checked(self):
+        root = self.tempdir()
+        shutil.copytree(FIXTURES / "fixable", root / "fixable")
+        ctx = temp_context(root / "fixable")
+        inv, results = command_line.run_checks(ctx, ["bar"])
+        changed = json.loads(ctx.shell_json.read_bytes())
+        changed["bar"]["position"] = "bottom"
+        ctx.shell_json.write_text(json.dumps(changed, indent=2) + "\n", encoding="utf-8")
+        with self.assertRaises(fixes.FixError):
+            command_line._fix(ctx, inv, results, dry_run=False, color=False)
+        self.assertEqual(json.loads(ctx.shell_json.read_text(encoding="utf-8")), changed)
+        self.assertEqual([p.name for p in ctx.config_dir.iterdir() if ".bak." in p.name], [])
+
 
 ORIGINAL = (FIXTURES / "fixable" / "omarchy" / "shell.json").read_bytes()
 
@@ -197,13 +231,16 @@ class FixTests(CliFixTestCase):
         center = self.config()["bar"]["layout"]["center"]
         self.assertEqual(center, [{"id": "omarchy.clock", "verticalFormat": "HH\n—\nmm"}])
 
-    def test_right_keeps_the_first_tray_and_loses_the_other_copies(self):
+    def test_right_has_nothing_dead_and_is_untouched(self):
         right = self.config()["bar"]["layout"]["right"]
         self.assertEqual(right, [
             {"id": "omarchy.tray", "pinned": [], "hidden": []},
             {"id": "acme.good"},
             {"id": "omarchy.audio"},
         ])
+
+    def test_nothing_is_left_to_report(self):
+        self.assertIn("No problems found", self.result.stdout)
 
     def test_plugins_lose_the_vanished_one(self):
         self.assertEqual(self.config()["plugins"], [{"id": "omarchy.emojis"}])
@@ -260,18 +297,24 @@ class FixOnBrokenFixtureTests(Helpers, unittest.TestCase):
         args = directory_args(root / "broken" / "omarchy", root / "broken" / "hypr", root / "stock")
         self.result = cli("--fix", "--no-color", *args)
 
-    def test_reports_two_fixes(self):
-        self.assertIn("Fixing 2 problems", self.result.stdout)
+    def fixed(self):
+        return json.loads(self.shell_json.read_text(encoding="utf-8"))
 
-    def test_removes_only_the_entry_without_an_id_and_the_duplicate_tray(self):
+    def test_reports_one_fix(self):
+        self.assertIn("Fixing 1 problem ", self.result.stdout)
+
+    def test_removes_only_the_entry_without_an_id(self):
         expected = copy.deepcopy(self.original)
         del expected["bar"]["layout"]["center"][2]
-        del expected["bar"]["layout"]["right"][0]
-        self.assertEqual(json.loads(self.shell_json.read_text(encoding="utf-8")), expected)
+        self.assertEqual(self.fixed(), expected)
 
     def test_leaves_the_unfixable_widget_in_the_file(self):
-        left = json.loads(self.shell_json.read_text(encoding="utf-8"))["bar"]["layout"]["left"]
-        self.assertIn({"id": "acme.gone"}, left)
+        self.assertIn({"id": "acme.gone"}, self.fixed()["bar"]["layout"]["left"])
+
+    def test_leaves_both_copies_of_the_duplicated_tray(self):
+        layout = self.fixed()["bar"]["layout"]
+        self.assertIn({"id": "omarchy.tray"}, layout["center"])
+        self.assertIn({"id": "omarchy.tray", "pinned": []}, layout["right"])
 
     def test_still_exits_one_because_errors_remain(self):
         self.assertEqual(self.result.returncode, 1)

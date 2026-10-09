@@ -98,16 +98,19 @@ copies it into `~/.config/omarchy/hooks/post-update.d/`; delete it there to undo
 `--fix` repairs one kind of problem: entries in `~/.config/omarchy/shell.json` that the
 shell already ignores. It removes
 
-- bar entries for widgets that are not installed and not built in,
-- extra placements of a widget that does not support several,
+- bar entries for widgets that are not installed,
 - bar entries without an id,
 - `plugins` entries for plugins that are not installed,
 - a `bar.id` naming a bar that is not installed.
 
 The bar looks the same before and after. Before writing, it copies the file to
 `shell.json.bak.omadoctor.<timestamp>` next to it and prints a unified diff; the output
-ends with the `cp` command that undoes the change. It leaves an entry alone whenever the
-plugin might merely be broken rather than gone, and says so.
+ends with the `cp` command that undoes the change.
+
+It is deliberately cautious. It leaves an entry alone when the plugin might be broken
+rather than gone, never removes anything in the `omarchy.*` namespace, and does not
+touch a widget that is placed twice, because the bar draws both copies and which one
+stays is your call. In each case the report says why.
 
 Everything else in the report comes with a suggestion but is yours to fix: OmaDoctor
 never edits plugin code, your Hyprland config, or anything under `/usr/share/omarchy`.
