@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.good",
+  "name": "Good",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  }
+}

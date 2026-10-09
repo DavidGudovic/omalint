@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.emojis",
+  "name": "Emojis",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Fixture plugin",
+  "kinds": [
+    "overlay"
+  ],
+  "entryPoints": {
+    "overlay": "Emojis.qml"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.service",
+  "name": "Service",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

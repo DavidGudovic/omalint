@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.ghostentry",
+  "name": "Ghost entry",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget",
+    "service",
+    "teleporter"
+  ],
+  "entryPoints": {
+    "barWidget": "Gone.qml"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.disabled",
+  "name": "Disabled",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "overlay"
+  ],
+  "entryPoints": {
+    "overlay": "Overlay.qml"
+  }
+}

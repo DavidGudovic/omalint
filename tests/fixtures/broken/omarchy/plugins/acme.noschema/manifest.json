@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "id": "acme.noschema",
+  "name": "No schema",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  }
+}

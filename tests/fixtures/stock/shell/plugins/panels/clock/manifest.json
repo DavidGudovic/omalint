@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.clock",
+  "name": "Clock",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "allowMultiple": true
+  }
+}

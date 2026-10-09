@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "bar": {
+    "id": "acme.neon-bar",
+    "position": "top",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.workspaces"
+        },
+        {
+          "id": "omarchy.spacer"
+        },
+        {
+          "id": "acme.good"
+        },
+        {
+          "id": "acme.gone"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock"
+        },
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "size": 4
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.tray",
+          "pinned": []
+        },
+        {
+          "id": "omarchy.spacer"
+        },
+        {
+          "id": "acme.service"
+        },
+        {
+          "id": "acme.badjson"
+        },
+        {
+          "id": "gpu",
+          "type": "qml"
+        },
+        {
+          "id": "acme.good",
+          "type": "compact"
+        },
+        {
+          "id": "omarchy.audio"
+        }
+      ],
+      "middle": [
+        {
+          "id": "omarchy.audio"
+        }
+      ]
+    }
+  },
+  "plugins": [
+    {
+      "id": "acme.vanished"
+    },
+    "acme.service",
+    {
+      "id": "omarchy.emojis"
+    }
+  ]
+}

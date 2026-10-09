@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "bar": {
+    "position": "top",
+    "centerAnchor": "omarchy.clock",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.workspaces"
+        },
+        {
+          "id": "omarchy.spacer",
+          "size": 8
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock",
+          "format": "HH:mm"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.spacer",
+          "size": 4
+        },
+        {
+          "id": "acme.clock-plus"
+        },
+        {
+          "id": "gpu",
+          "type": "qml"
+        },
+        {
+          "id": "vpn",
+          "type": "command",
+          "exec": "true"
+        },
+        {
+          "id": "omarchy.tray"
+        },
+        "omarchy.audio"
+      ]
+    }
+  },
+  "plugins": [
+    {
+      "id": "acme.notes"
+    }
+  ]
+}

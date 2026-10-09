@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.tray",
+  "name": "System tray",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Tray.qml"
+  }
+}

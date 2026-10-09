@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.audio",
+  "name": "Audio",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  }
+}

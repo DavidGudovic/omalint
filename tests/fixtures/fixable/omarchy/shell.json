@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "idle": {
+    "screensaver": 150,
+    "lock": 300
+  },
+  "bar": {
+    "id": "acme.neon-bar",
+    "position": "top",
+    "centerAnchor": "omarchy.clock",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.workspaces"
+        },
+        {
+          "id": "acme.gone",
+          "color": "red"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock",
+          "verticalFormat": "HH\n—\nmm"
+        },
+        {
+          "size": 4
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.tray",
+          "pinned": [],
+          "hidden": []
+        },
+        {
+          "id": "acme.good"
+        },
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "omarchy.tray"
+        }
+      ]
+    }
+  },
+  "plugins": [
+    {
+      "id": "acme.vanished",
+      "interval": 5
+    },
+    {
+      "id": "omarchy.emojis"
+    }
+  ]
+}

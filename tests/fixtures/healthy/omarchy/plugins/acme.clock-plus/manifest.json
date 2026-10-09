@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.clock-plus",
+  "name": "Clock Plus",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Fixture plugin",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Clock Plus",
+    "defaultSection": "right"
+  }
+}

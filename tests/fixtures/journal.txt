@@ -1,0 +1,10 @@
+2026-10-09T09:11:28+02:00 omarchy omarchy-shell[1700]: [34m DEBUG[97m qml[0m: omarchy idle 2026-10-09T07:11:28.000Z idle-monitor: active
+2026-10-09T09:11:29+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m scene[0m: QML IpcHandler at file:///home/user/.config/omarchy/plugins/acme.good/Widget.qml[55:5]: Handler was registered but will not be used because another handler is registered for target acme.good
+2026-10-09T09:11:29+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m scene[0m: file:///home/user/.config/omarchy/plugins/acme.good/Widget.qml[815:-1]: TypeError: Cannot call method 'unregisterRow' of null
+2026-10-09T09:12:01+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m scene[0m: file:///home/user/.config/omarchy/plugins/acme.good/Widget.qml[815:-1]: TypeError: Cannot call method 'unregisterRow' of null
+2026-10-09T09:12:05+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m qml[0m: Plugin widget acme.dup failed: Type Gauge unavailable
+2026-10-09T09:12:05+02:00 omarchy omarchy-shell[1700]: file:///home/user/.config/omarchy/plugins/acme.dup-two/Gauge%20Dial.qml:12 Cannot assign to non-existent property "colour"
+2026-10-09T09:12:06+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m qml[0m: PluginRegistry: plugin omarchy.hijack rejected: id is reserved for first-party Omarchy plugins
+2026-10-09T09:13:00+02:00 omarchy omarchy-shell[1700]: [34m DEBUG[97m qml[0m: loading file:///home/user/.config/omarchy/plugins/acme.good/Widget.qml failed quietly
+2026-10-09T09:13:10+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m quickshell.dbus.properties[0m: Error updating property org.freedesktop.StatusNotifierItem:IconName
+2026-10-09T09:13:31+02:00 omarchy omarchy-shell[57058]: quickshell.service.pam.subprocess: Authenticated successfully.
