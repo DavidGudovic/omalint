@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.davidgudovic.omadoctor",
+  "name": "OmaDoctor",
+  "version": "0.1.0",
+  "author": "David Gudovic",
+  "description": "Finds problems in your Omarchy shell plugins and bar setup: broken manifests, dead bar entries, keybinding conflicts, missing dependencies, modified plugins, and plugin errors in the shell log. Read-only unless you ask it to fix.",
+  "license": "MIT",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "OmaDoctor",
+    "description": "Shows how many plugin and bar problems OmaDoctor found. Click for the report.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "alwaysShow": false,
+      "refreshIntervalSec": 1800
+    },
+    "schema": [
+      {
+        "key": "alwaysShow",
+        "type": "boolean",
+        "label": "Always Show",
+        "description": "Keep the icon on the bar when no problems are found.",
+        "defaultValue": false
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 60,
+        "max": 86400,
+        "step": 60,
+        "defaultValue": 1800
+      }
+    ]
+  }
+}
