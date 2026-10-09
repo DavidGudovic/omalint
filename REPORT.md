@@ -2,7 +2,7 @@
 
 **Status: ready to publish, not published.** `DavidGudovic/omalint` does not exist on
 GitHub and this repository has no remote, so everything is committed locally only. The
-working tree is clean, 261 tests pass, `omarchy plugin validate` accepts it, and the
+working tree is clean, 321 tests pass, `omarchy plugin validate` accepts it, and the
 marketplace's own static security baseline reports `passed`.
 
 | | |
@@ -10,7 +10,67 @@ marketplace's own static security baseline reports `passed`.
 | Repository | `~/projects/omalint` (branch `main`), to become `DavidGudovic/omalint` |
 | Plugin id | `io.github.davidgudovic.omalint` |
 | Command | `omalint` |
-| Version | 0.2.0 |
+| Version | 0.3.0 |
+
+## Round 3: inspection
+
+I used OmaLint the way a new user would: in a temporary HOME with nothing configured,
+with a stock `shell.json`, with the sample setup, and with the plugin installed into that
+temporary setup. I read what it says at each step.
+
+**Findings**
+
+1. There was no way to accept a finding. A warning the user has decided to live with,
+   such as a plugin edited on purpose, kept the bar icon on for good. On the owner's own
+   machine the two warnings from round 1 would have made the icon permanent.
+2. The bar count could be up to 30 minutes old after a fix, because the service only
+   checked on a timer.
+3. Between the shell starting and the first check finishing, the tooltip said "no
+   problems found" although nothing had been checked yet.
+4. The README did not say that seeing nothing on the bar after enabling is the healthy
+   state, or that the report can be opened without the `~/.local/bin` link.
+5. Two empty states read like counters ("0 declared commands checked", "0 git checkouts
+   compared").
+
+The rest held up: the empty and first-run reports, usage errors, `--help`, and the plugin
+linting a setup it is itself installed in.
+
+**Changed**
+
+- **Ignore rules.** Every finding has a rule (`code:subject`), and `omalint --rules` shows
+  it. A rule listed in the widget's `ignore` setting, or passed with `--ignore`, takes the
+  finding out of the counts, the exit status and `--fix`. It stays visible on an
+  `Ignored:` line and in the JSON. Version 0.3.0.
+- The service checks again one second after `shell.json` changes. It compares content, so
+  the host sending the same configuration again does nothing.
+- Until the first check has finished, the tooltip says "first check pending" and the icon
+  is dimmed.
+- The two empty states are sentences now.
+- README: a first-run note under Install, and an "Ignoring a finding" section.
+- The images were regenerated, because one line of the sample report changed. I opened
+  the new `docs/report.png` and `preview.png`.
+
+**Left out on purpose**
+
+- Dropping log errors from before the last plugin reload, so that an updated plugin
+  clears without a shell restart. It would also hide errors that only happen now and
+  then, and ignore rules cover the real need.
+- A popup panel on the bar that lists the findings. It is the natural next step, but it
+  is a new UI surface and not a low-risk change.
+- Desktop notifications when a new problem appears. They turn into noise easily.
+- Putting the command on PATH automatically. Omarchy runs no install hooks, so it stays
+  one `ln -s` in the README.
+- Tooltip hints for the click actions. Stock widgets do not carry them.
+
+**Tests: 321, all passing.** New: ignore rules (46 tests), the pending state and the
+re-check in the offscreen harness (the widget test now has 10 tests, and fails when
+either behaviour is removed), and the two empty states. `omarchy plugin validate` passes
+and the marketplace baseline still reports `passed`.
+
+**Not verified:** 0.3.0 has not run inside the real bar. The re-check was exercised by
+assigning a new configuration in the harness, not by a real `shell.json` write through
+the shell. Two Sonnet subagents wrote the code, and Haiku subagents the text and a test
+clean-up; I reviewed all of it. As in round 2, everything ran in a temporary HOME.
 
 ## Round 2: what changed
 
@@ -121,7 +181,7 @@ Per the brief, the plugin was **not** installed into `~/.config/omarchy/plugins`
 
 ## What was tested
 
-**Tests: 261, all passing** (`bash tests/run.sh`, about 4 seconds,
+**Tests: 321, all passing** (`bash tests/run.sh`, about 8 seconds,
 standard library only). Fixtures under `tests/fixtures/`:
 
 - `stock/`: a miniature Omarchy install (built-in plugins, default Hyprland bindings)
@@ -353,7 +413,7 @@ gh repo view DavidGudovic/omalint --json visibility,url
 
 ## Known limitations
 
-- **0.2.0 has never run inside the real bar.** The service and widget were verified in a
+- **0.3.0 has never run inside the real bar.** The service and widget were verified in a
   separate offscreen Quickshell with the shell's real components, not in the running
   Omarchy shell. The owner's installed copy is 0.1.0.
 - **Keybindings** are found by scanning Lua for literal `o.bind` / `hl.bind` /

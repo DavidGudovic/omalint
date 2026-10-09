@@ -86,6 +86,12 @@ To put the widget on the bar later (optional):
 omarchy plugin enable io.github.davidgudovic.omalint
 ```
 
+Nothing on the bar after enabling it? That is the healthy state: the icon only shows when
+there is something to report. Turn on `alwaysShow` (see below) to keep it visible. You can
+also read the report without the `~/.local/bin` link:
+`omarchy-shell io.github.davidgudovic.omalint report` opens it in a terminal once the
+plugin is enabled.
+
 ## Usage
 
 ```bash
@@ -96,6 +102,8 @@ omalint --json             # the same report, for scripts
 omalint --fix --dry-run    # show what --fix would change
 omalint --fix              # remove dead shell.json entries (backup + diff)
 omalint --strict           # also exit 1 when there are warnings
+omalint --rules            # also print each finding's rule
+omalint --ignore RULE      # hide a finding you have accepted
 ```
 
 Exit status is `0` when there are no errors, `1` when there are (so it can gate a hook
@@ -140,10 +148,37 @@ stays is your call. In each case the report says why.
 Everything else in the report comes with a suggestion but is yours to fix: OmaLint
 never edits plugin code, your Hyprland config, or anything under `/usr/share/omarchy`.
 
+## Ignoring a finding
+
+Some findings you will decide to live with, such as a plugin you edited on purpose. So that
+they do not keep the icon on the bar forever, you can ignore them.
+
+Every finding has a rule: a code, plus the thing it is about. `omalint --rules` prints it
+under each finding:
+
+```
+rule: stale.local-changes:zeru.portwatch
+```
+
+List the rules you accept in the widget's `ignore` setting, separated by commas. The
+command and the bar icon both read it:
+
+```bash
+omarchy bar set io.github.davidgudovic.omalint ignore "stale.local-changes:zeru.portwatch"
+```
+
+The code alone (`stale.local-changes`) ignores every finding of that kind. For a single
+run, `omalint --ignore RULE` does the same without changing any setting.
+
+An ignored finding is not counted, does not affect the exit status, and `--fix` leaves it
+alone. It is still listed, on an `Ignored:` line under its check, so nothing disappears
+without a trace. To stop ignoring it, remove the rule from the setting.
+
 ## The bar widget
 
 One background service per shell runs the same checks (ten seconds after the shell starts,
-then every 30 minutes), however many monitors you have. The widget on each bar shows its
+then every 30 minutes), however many monitors you have. It also checks again a second
+after `shell.json` changes, so the count follows a fix. The widget on each bar shows its
 result: a checklist icon with the number of errors and warnings (the icon alone on a
 vertical bar). With errors it takes the theme's urgent color. With nothing to report it
 stays off the bar, like Omarchy's own update indicator.
@@ -157,6 +192,7 @@ Settings, in the widget's `shell.json` entry or with `omarchy bar set`:
 |---|---|---|
 | `alwaysShow` | `false` | Keep the icon on the bar when no problems are found |
 | `refreshIntervalSec` | `1800` | Seconds between background checks (minimum 60) |
+| `ignore` | `""` | Rules of findings to hide, comma-separated (see "Ignoring a finding") |
 
 ```bash
 omarchy bar set io.github.davidgudovic.omalint alwaysShow true
