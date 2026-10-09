@@ -14,7 +14,7 @@ from . import fixes, inventory, report
 from .checks import CHECKS
 from .model import ERROR, Context, Finding, Result
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 DESCRIPTION = """\
 Find problems in your Omarchy shell plugins and bar setup.
@@ -53,7 +53,8 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--only", type=_names, metavar="CHECKS", help="run only these checks (comma-separated)")
     cli.add_argument("--skip", type=_names, metavar="CHECKS", default=[], help="skip these checks")
     cli.add_argument("--strict", action="store_true", help="exit 1 on warnings too")
-    cli.add_argument("--no-live", action="store_true", help="do not query the running shell, journal or Hyprland")
+    cli.add_argument("--no-live", action="store_true",
+                     help="do not query the running shell, journal or Hyprland (also: OMALINT_NO_LIVE=1)")
     cli.add_argument("--no-color", action="store_true", help="plain text output")
     cli.add_argument("--config-dir", type=Path, metavar="DIR", help="Omarchy config directory (default: ~/.config/omarchy)")
     cli.add_argument("--hypr-dir", type=Path, metavar="DIR", help="Hyprland config directory (default: ~/.config/hypr)")
@@ -67,11 +68,14 @@ def context(args) -> Context:
     # The running session belongs to the default directories; point elsewhere and
     # the shell, journal and Hyprland would describe a different setup.
     elsewhere = any(value is not None for value in (args.config_dir, args.hypr_dir, args.omarchy_path))
+    # The bar's service runs this command with fixed arguments, so whatever mounts it
+    # away from a real session (its test, the screenshot script) says so in the environment.
+    no_live = args.no_live or bool(os.environ.get("OMALINT_NO_LIVE"))
     return Context(
         config_dir=(args.config_dir or home / ".config" / "omarchy").absolute(),
         hypr_dir=(args.hypr_dir or home / ".config" / "hypr").absolute(),
         omarchy_path=(args.omarchy_path or Path(os.environ.get("OMARCHY_PATH") or "/usr/share/omarchy")).absolute(),
-        live=not (args.no_live or elsewhere),
+        live=not (no_live or elsewhere),
     )
 
 

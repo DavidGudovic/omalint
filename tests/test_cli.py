@@ -220,6 +220,27 @@ class ReadOnlyTests(Helpers, unittest.TestCase):
         self.assertEqual(snapshot(self.root), self.before)
 
 
+class WithoutTheSessionTests(Helpers, unittest.TestCase):
+    """Both ways to keep a default-directory run away from the running session."""
+
+    def health_status(self, *args, **env):
+        home = self.tempdir()
+        shutil.copytree(FIXTURES / "fixable" / "omarchy", home / ".config" / "omarchy")
+        env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "OMARCHY_PATH": str(FIXTURES / "stock"), **env}
+        result = subprocess.run(
+            [sys.executable, "-B", str(CLI), "--json", *args],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, env=env, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return {check["id"]: check["status"] for check in json.loads(result.stdout)["checks"]}["health"]
+
+    def test_the_environment_variable_skips_the_live_checks(self):
+        self.assertEqual(self.health_status(OMALINT_NO_LIVE="1"), "skipped")
+
+    def test_the_flag_skips_the_live_checks(self):
+        self.assertEqual(self.health_status("--no-live"), "skipped")
+
+
 class EntryScriptTests(Helpers, unittest.TestCase):
     def test_running_without_dash_b_leaves_no_bytecode(self):
         root = self.tempdir()

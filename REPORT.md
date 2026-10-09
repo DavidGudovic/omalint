@@ -1,8 +1,8 @@
 # OmaLint: final report
 
-**Status: ready to publish, not published.** The repository is local only, as
-instructed. Nothing has been pushed and no GitHub repository exists yet. The working
-tree is clean, 249 tests pass, `omarchy plugin validate` accepts it, and the
+**Status: ready to publish, not published.** `DavidGudovic/omalint` does not exist on
+GitHub and this repository has no remote, so everything is committed locally only. The
+working tree is clean, 261 tests pass, `omarchy plugin validate` accepts it, and the
 marketplace's own static security baseline reports `passed`.
 
 | | |
@@ -10,14 +10,76 @@ marketplace's own static security baseline reports `passed`.
 | Repository | `~/projects/omalint` (branch `main`), to become `DavidGudovic/omalint` |
 | Plugin id | `io.github.davidgudovic.omalint` |
 | Command | `omalint` |
-| Version | 0.1.0 |
+| Version | 0.2.0 |
+
+## Round 2: what changed
+
+**The duplicate IPC handler warning is fixed.** For the installed 0.1.0 the shell logged:
+
+```
+Handler was registered but will not be used because another handler is registered for target io.github.davidgudovic.omalint
+```
+
+Cause: the Omarchy bar is created once per monitor (`Variants { model: Quickshell.screens }`
+in the shell's `Bar.qml`), so every bar widget exists once per monitor, and 0.1.0
+registered its IPC target inside the widget. This machine has two monitors, so the second
+copy's registration was refused. It was not an id clash with the plugin loader: the
+journal shows the same line for most stock and third-party widgets here, for the same
+reason.
+
+Fix: the plugin is now a service plus a widget, which is the layout the shell provides
+for this. `Service.qml` is mounted once per shell and owns the check, its timers and the
+single IPC handler. `Widget.qml` is a view that reads the service through
+`bar.shell.serviceFor(...)`. As a side effect the check now runs once per shell instead of
+once per monitor.
+
+Evidence, from an offscreen Quickshell that mounts the plugin the way the shell does (one
+service, two widgets, and the shell's own `Commons`, `Ui` and `PluginShellApi`):
+
+- The 0.1.0 widget, two copies, logs
+  `WARN scene: QML IpcHandler at @plugin/Widget.qml[57:3]: Handler was registered but will not be used because another handler is registered for target io.github.davidgudovic.omalint`,
+  the same line at the same `[57:3]` as in the real journal.
+- 0.2.0, two copies: no such line. `quickshell ipc show` lists the target once, with
+  `report()` and `refresh()`, and `quickshell ipc call io.github.davidgudovic.omalint refresh`
+  reaches the service (its run counter goes from 1 to 2).
+
+This is now a regression test (`tests/test_widget.py`, 5 tests), and it was confirmed to
+fail when the handler is put back into the widget.
+
+**Not verified:** 0.2.0 has not run inside the real bar on the real monitors. The copy
+installed in `~/.config/omarchy/plugins/` is still 0.1.0 and was not touched, so the
+running shell keeps logging the warning until that copy is updated
+(`omarchy plugin update io.github.davidgudovic.omalint`; its origin is this local
+repository). After the update, `journalctl --user -b -t omarchy-shell | grep omalint`
+should show no new "Handler was registered" line.
+
+**README.** A "What you get" section explains the report and the bar icon in plain
+language, with two images.
+
+**Screenshots come from real output.** `docs/screenshots.sh` regenerates
+`docs/report.png`, `docs/widget.png` and `preview.png` in a temporary HOME. The report is
+the command's own colored output on the made-up setup in `docs/sample`, and the icon is
+the real widget showing the count its own service computed (1 error and 4 warnings). The
+earlier preview used simulated shell answers and a mock clock; both are gone. The report
+image is a rendering of the captured text in Omarchy's default theme, not a photograph of
+a terminal window. I opened all three images and checked them for clipping and
+legibility.
+
+**Also new.** `OMALINT_NO_LIVE=1` does the same as `--no-live`, so the widget's test and
+the screenshot script never contact the running session. Both run with a temporary HOME
+and a private runtime directory. Nothing in round 2 was run against the real
+`~/.config/omarchy`; I only read the journal, `shell.json` and the installed copy's git
+log to diagnose the warning. One early trial of mine, in a temporary HOME before this
+switch existed, did ask the running shell for `ping` and `listPlugins` (both read-only).
+That is how I found the switch was needed.
 
 ## What it is
 
 A health check for Omarchy shell plugins and the bar setup. A stdlib-only Python command
 (`bin/omalint`, package `omalint/`) runs six read-only checks and prints a grouped
-OK / WARN / ERROR report with a plain-language fix for each finding. A small bar widget
-(`Widget.qml`) runs the same checks in the background and shows the count.
+OK / WARN / ERROR report with a plain-language fix for each finding. A background
+service (`Service.qml`) runs the same checks once per shell, and a small bar widget
+(`Widget.qml`) shows the count.
 
 | Check | What it reports |
 |---|---|
@@ -59,7 +121,7 @@ Per the brief, the plugin was **not** installed into `~/.config/omarchy/plugins`
 
 ## What was tested
 
-**Unit and fixture tests: 249, all passing** (`bash tests/run.sh`, about 4 seconds,
+**Tests: 261, all passing** (`bash tests/run.sh`, about 4 seconds,
 standard library only). Fixtures under `tests/fixtures/`:
 
 - `stock/`: a miniature Omarchy install (built-in plugins, default Hyprland bindings)
@@ -69,38 +131,47 @@ standard library only). Fixtures under `tests/fixtures/`:
   references, key conflicts, missing imports)
 - `fixable/`: only the problems `--fix` repairs
 - `journal.txt`: a captured shell log
+- `docs/sample/`: the made-up setup the screenshots show, with a test that it still
+  produces exactly the problems in the pictures
+- an offscreen Quickshell harness (`tests/harness/`) for the widget and its service,
+  skipped where Quickshell or the Omarchy shell's files are missing
 
 Each finding is asserted by code, subject and severity. Git and symlink cases are built
 at run time in temporary directories, so the repository itself contains no symlinks and
 no nested `.git`. The tests added for the review fixes were also run against the pre-fix
 code, where every one that covers a fixed defect fails.
 
-**Real machine, read-only.** Run against the real `~/.config/omarchy` and
-`~/.config/hypr` (13 plugins). Output below. A snapshot taken immediately before and
-after three runs (text, `--json`, `--fix --dry-run`) was identical: the hash of
-`shell.json`, the names, sizes and modification times of everything in both config
-directories, the `.git/index` of all 11 plugin checkouts, and the absence of
-`__pycache__`.
+**Real machine, read-only (round 1, version 0.1.0).** Run against the real
+`~/.config/omarchy` and `~/.config/hypr` (13 plugins). Output below. A snapshot taken
+immediately before and after three runs (text, `--json`, `--fix --dry-run`) was
+identical: the hash of `shell.json`, the names, sizes and modification times of
+everything in both config directories, the `.git/index` of all 11 plugin checkouts, and
+the absence of `__pycache__`. Round 2 did not repeat this run: by instruction, everything
+in it used a temporary HOME.
 
 **The `--fix` path** on a copy of the fixture: transcript below. The backup is
 byte-identical to the original, the diff shows exactly the four removed entries, a
 second run finds nothing to fix and makes no second backup, and `--dry-run` leaves the
 file untouched.
 
-**The widget** was loaded in a scratch Quickshell instance (offscreen, so nothing
-appeared on screen) using the shell's real `Commons` and `Ui` components and the real
-`PluginBarApi` facade that third-party widgets receive. It loaded without QML errors,
-ran the real command and parsed the same 2 warnings the CLI reports, hides the count on
-a vertical bar, and shows "could not run" rather than breaking when its script is
-missing. The double shell-quoting of the click command was verified through both shell
-evaluations with a path containing spaces and an apostrophe.
+**The widget and its service** are mounted by `tests/test_widget.py` in an offscreen
+Quickshell (nothing appears on screen) using the shell's real `Commons` and `Ui`
+components and the real `PluginShellApi` and `PluginBarApi` facades that third-party
+plugins receive. With one service and two widgets it checks that the IPC target is
+registered once, that the QML loads without errors, that the service ran the real command
+and both widgets show its numbers, and that an IPC `refresh` sent from outside reaches the
+service. The command that opens the report in a terminal is never run by a test; its
+quoting was checked separately through a stand-in launcher with a path containing spaces
+and an apostrophe.
 
 **Marketplace rules.** `omarchy plugin validate .` exits 0. One `manifest.json`, at the
-root. README has install and removal sections; LICENSE is MIT. No symlinks. The
+root, now declaring a service and a bar widget; its fields were checked by hand against
+the marketplace's `validateManifest`, which I could not import to run. README has install
+and removal sections; LICENSE is MIT. No symlinks. The
 marketplace's `security-baseline-analysis.mjs`, run locally over the tracked files,
 reports `outcome: passed`.
 
-### Real output on this machine
+### Real output on this machine (round 1, version 0.1.0)
 
 ```
 OmaLint: 13 plugins in ~/.config/omarchy/plugins
@@ -240,9 +311,8 @@ problems, and 2 nits. I checked each before acting; all but one were real and ar
 | 15 | Nit. A crashed check was only a warning, so a CI gate would pass | It is an error now |
 | 16 | Nit. Widget: guessed width for the count, README silent about vertical bars, stethoscope left over from the old name | Width is measured, README says so, icon is a checklist |
 
-Not changed: the reviewer noted that with several monitors each bar's copy of the widget
-runs its own check. That is a half-second of work per monitor every 30 minutes, so I
-left it (listed below).
+Left alone in round 1: the reviewer noted that with several monitors each bar's copy of
+the widget ran its own check. Round 2's service removes that.
 
 Before that review, my own pass led to three stricter `--fix` rules, also in the code:
 a widget placed twice is reported but never removed (the bar draws both copies);
@@ -270,6 +340,9 @@ One correction to the finish notice: it says the marketplace already lists
 `Davedes83/OmaDoctor`, which was the conflict with the previous name. The rename removes
 it, so I see no open naming question, but the decision to publish is the owner's.
 
+Checked again in round 2: `gh repo view DavidGudovic/omalint` still fails and no remote is
+configured, so nothing was pushed.
+
 To publish:
 
 ```bash
@@ -280,10 +353,9 @@ gh repo view DavidGudovic/omalint --json visibility,url
 
 ## Known limitations
 
-- **Never run inside the real bar.** The widget was verified in a separate offscreen
-  Quickshell instance with the shell's real components, not in the running Omarchy
-  shell, because installing was out of bounds. The first real install is the first time
-  it runs there.
+- **0.2.0 has never run inside the real bar.** The service and widget were verified in a
+  separate offscreen Quickshell with the shell's real components, not in the running
+  Omarchy shell. The owner's installed copy is 0.1.0.
 - **Keybindings** are found by scanning Lua for literal `o.bind` / `hl.bind` /
   `hl.unbind` calls. Bindings built in loops or from variables are invisible unless
   Hyprland is running, when its own table decides. Keys bound by keycode (`code:38`) are
@@ -302,11 +374,9 @@ gh repo view DavidGudovic/omalint --json visibility,url
 - **The stale check runs `git status`** inside each plugin checkout, with optional
   locks and fsmonitor disabled. Like any git command there, it trusts the checkout's
   own git configuration.
-- **Multiple monitors:** each bar's copy of the widget runs its own check.
-- **`preview.png` is a render, not a screenshot.** It is the real `Widget.qml` and real
-  report output, drawn offscreen in the stock Tokyo Night theme over a small made-up
-  setup, with the shell, journal and Hyprland answers simulated. The bar strip and
-  clock text around the widget are a mock.
+- **The images are renders, not window screenshots.** They are produced offscreen from
+  real output (see round 2) in the stock Tokyo Night theme. The line numbers and binding
+  counts in them depend on the installed Omarchy version.
 
 ## Things that happened during the build
 

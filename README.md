@@ -12,6 +12,29 @@ shell reads, tells you in plain language what is wrong, and suggests the fix.
 It is read-only. The one thing it will ever change is your `shell.json`, only when you
 run `omalint --fix`, and only after saving a backup and showing you the diff.
 
+## What you get
+
+**A report you can read.** Run `omalint` and each check answers with OK, WARN or ERROR.
+Every problem says what is wrong, where, and what to do about it, in plain language
+rather than log lines.
+
+![The report for a sample setup](docs/report.png)
+
+**An icon on the bar when something is wrong.** The widget shows how many errors and
+warnings were found, in the theme's urgent color when there are errors. Click it and the
+report opens in a terminal. When there is nothing to report, it stays out of the way.
+
+![The bar widget showing five problems](docs/widget.png)
+
+**A safe cleanup.** `omalint --fix` removes entries in `shell.json` that point at plugins
+you no longer have, after saving a backup and showing you the diff.
+
+Both pictures are made from the real program by `docs/screenshots.sh`, not drawn. The
+report is the output of `omalint --no-live` on the made-up setup in `docs/sample`. The icon
+is the real widget in an offscreen Quickshell, showing the count its own check produced
+for that setup (1 error and 4 warnings). The shell health row says SKIP because a sample
+folder is not a running desktop.
+
 ## What it checks
 
 | Check | Finds |
@@ -80,7 +103,8 @@ or a CI job), and `2` when OmaLint itself could not run.
 
 `--config-dir`, `--hypr-dir` and `--omarchy-path` point it at another setup, such as a
 dotfiles checkout in CI. Pointed away from your own session, or run with `--no-live`, it
-does not query the running shell, the journal or Hyprland.
+does not query the running shell, the journal or Hyprland. Setting `OMALINT_NO_LIVE=1` in
+the environment does the same as `--no-live`.
 
 For example, to be told after every `omarchy update` if something broke, save this as a
 file named `omalint-after-update`:
@@ -118,10 +142,11 @@ never edits plugin code, your Hyprland config, or anything under `/usr/share/oma
 
 ## The bar widget
 
-The widget runs the same checks in the background (ten seconds after the shell starts,
-then every 30 minutes) and shows a checklist icon with the number of errors and warnings
-(the icon alone on a vertical bar). With errors it takes the theme's urgent color. With
-nothing to report it stays off the bar, like Omarchy's own update indicator.
+One background service per shell runs the same checks (ten seconds after the shell starts,
+then every 30 minutes), however many monitors you have. The widget on each bar shows its
+result: a checklist icon with the number of errors and warnings (the icon alone on a
+vertical bar). With errors it takes the theme's urgent color. With nothing to report it
+stays off the bar, like Omarchy's own update indicator.
 
 - Left click opens the report in a floating terminal.
 - Right click checks again now.
@@ -189,12 +214,16 @@ were not written for a machine, and say less when they are less sure:
 ## Development
 
 ```bash
-bash tests/run.sh
+bash tests/run.sh           # all tests
+bash docs/screenshots.sh    # regenerate the images in this README
 ```
 
 The tests use only the standard library and the fixtures in `tests/fixtures/`: a small
 stand-in Omarchy install, a healthy setup, a broken one with one problem per plugin, and
-one with only the problems `--fix` repairs.
+one with only the problems `--fix` repairs. One test mounts the service and two copies of
+the widget in an offscreen Quickshell, the way a two-monitor bar does; it is skipped where
+Quickshell or the Omarchy shell's files are missing. Both commands work in a temporary
+home and never read or write your own configuration.
 
 ## License
 

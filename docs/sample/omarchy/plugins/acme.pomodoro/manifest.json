@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.pomodoro",
+  "name": "Pomodoro",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Pomodoro",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  }
+}

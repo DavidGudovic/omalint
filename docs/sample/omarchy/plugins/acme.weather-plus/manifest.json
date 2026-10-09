@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.weather-plus",
+  "name": "Weather Plus",
+  "version": "1.0.0",
+  "author": "Acme",
+  "description": "Weather Plus",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  }
+}

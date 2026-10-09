@@ -2,14 +2,16 @@
   "schemaVersion": 1,
   "id": "io.github.davidgudovic.omalint",
   "name": "OmaLint",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "David Gudovic",
   "description": "Finds problems in your Omarchy shell plugins and bar setup: broken manifests, dead bar entries, keybinding conflicts, missing dependencies, modified plugins, and plugin errors in the shell log. Read-only unless you ask it to fix.",
   "license": "MIT",
   "kinds": [
+    "service",
     "bar-widget"
   ],
   "entryPoints": {
+    "service": "Service.qml",
     "barWidget": "Widget.qml"
   },
   "barWidget": {

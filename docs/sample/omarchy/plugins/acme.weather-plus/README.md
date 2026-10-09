@@ -1,0 +1,5 @@
+# Weather Plus
+
+## Requirements
+
+- `sh`

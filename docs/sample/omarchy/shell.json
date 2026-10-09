@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "bar": {
+    "position": "top",
+    "centerAnchor": "omarchy.clock",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.workspaces"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock"
+        }
+      ],
+      "right": [
+        {
+          "id": "acme.weather-plus"
+        },
+        {
+          "id": "acme.pomodoro"
+        },
+        {
+          "id": "acme.gpu-meter"
+        },
+        {
+          "id": "acme.old-clock"
+        },
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "omarchy.tray"
+        }
+      ]
+    }
+  },
+  "plugins": [
+    {
+      "id": "acme.notes"
+    }
+  ]
+}
