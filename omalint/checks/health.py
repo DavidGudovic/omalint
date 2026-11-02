@@ -25,6 +25,13 @@ _QUIET = ("DEBUG", "INFO")
 # One bar is drawn per monitor and each copy of a widget registers the same IPC
 # target; the shell says so for stock widgets too. It is not a plugin fault.
 _BENIGN = ("Handler was registered but will not be used because another handler is registered",)
+# A picture the network could not deliver. Every music or weather widget draws
+# covers from a remote CDN, and Qt logs the same two lines through whichever QML
+# Image asked: a cover the CDN has deleted answers 404, and a stream the server
+# resets arrives as an HTTP/2 refusal. Neither says anything about the plugin's
+# code — the item already draws what it shows in place of the picture — and both
+# name the plugin only because its QML file is where the Image lives.
+_REMOTE_IMAGE = re.compile(r"^QML \S+ at .*: (?:Error transferring .+ - .+|Server refused a stream)$")
 _FAILURE = re.compile(r"\b(failed|threw|rejected|error|unavailable|is not a type)\b", re.I)
 MAX_LINES = 50000
 
@@ -44,7 +51,7 @@ def parse_journal(text: str, plugins_dir: str, plugin_ids) -> "OrderedDict":
             if level.group(1) in _QUIET:
                 continue
             message = level.group(3)
-        if any(marker in message for marker in _BENIGN):
+        if any(marker in message for marker in _BENIGN) or _REMOTE_IMAGE.match(message):
             continue
 
         owner = ""

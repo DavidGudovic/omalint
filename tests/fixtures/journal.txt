@@ -8,3 +8,5 @@
 2026-10-09T09:13:00+02:00 omarchy omarchy-shell[1700]: [34m DEBUG[97m qml[0m: loading file:///home/user/.config/omarchy/plugins/acme.good/Widget.qml failed quietly
 2026-10-09T09:13:10+02:00 omarchy omarchy-shell[1700]: [33m  WARN[97m quickshell.dbus.properties[0m: Error updating property org.freedesktop.StatusNotifierItem:IconName
 2026-10-09T09:13:31+02:00 omarchy omarchy-shell[57058]: quickshell.service.pam.subprocess: Authenticated successfully.
+2026-10-09T09:12:20+02:00 omarchy omarchy-shell[1700]:   WARN scene: QML QQuickImage* at qs:///home/user/.config/omarchy/plugins/acme.good/CoverTile.qml[71:3]: Error transferring https://cdn.example/cover.jpg?size=300x300 - server replied with status code 404
+2026-10-09T09:12:21+02:00 omarchy omarchy-shell[1700]:   WARN scene: QML CatalogImage at qs:///home/user/.config/omarchy/plugins/acme.good/TrackPane.qml[254:9]: Server refused a stream

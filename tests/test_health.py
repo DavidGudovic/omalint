@@ -44,6 +44,11 @@ class ParseJournalTests(unittest.TestCase):
         self.assertNotIn("StatusNotifierItem", text)
         self.assertNotIn("pam", text)
 
+    def test_cover_the_network_could_not_deliver_is_not_a_plugin_problem(self):
+        text = " ".join(m for owner in self.problems for m in self.problems[owner])
+        self.assertNotIn("Error transferring", text)
+        self.assertNotIn("Server refused a stream", text)
+
 
 def ping_ok():
     return (("omarchy-shell", "shell", "ping"), Run("ok", 0, "ok\n"))
